@@ -26,14 +26,16 @@ export interface Warehouse {
 }
 
 interface WeatherData {
-  current: {
+  main: {
     temp: number;
     aqi?: number;
     uvi: number;
     humidity: number;
-    wind_speed: number;
-    weather: [{ description: string }];
   };
+  wind: {
+    speed: number;
+  };
+  weather: [{ description: string }];
 }
 
 export const initialWarehouses: Warehouse[] = [
@@ -167,22 +169,20 @@ export async function fetchRealTimeData(): Promise<Warehouse[]> {
 
   for (const warehouse of initialWarehouses) {
     try {
-      console.log(`Fetching data for ${warehouse.name}`);
       const weatherData = await getWeatherData(warehouse.latitude, warehouse.longitude) as WeatherData;
-      console.log(`Received data for ${warehouse.name}:`, weatherData);
 
       updatedWarehouses.push({
         ...warehouse,
-        temp: Math.round(weatherData.current.temp),
-        aqi: weatherData.current.aqi || warehouse.aqi, // Fallback to existing AQI if not provided
-        uvIndex: Math.round(weatherData.current.uvi),
+        temp: Math.round(weatherData.main.temp),
+        aqi: weatherData.main.aqi || warehouse.aqi, // Fallback to existing AQI if not provided
+        uvIndex: Math.round(weatherData.main.uvi || 0),
         weather: {
-          temp: Math.round(weatherData.current.temp),
-          aqi: weatherData.current.aqi || warehouse.aqi,
-          uvIndex: Math.round(weatherData.current.uvi),
-          humidity: weatherData.current.humidity,
-          windSpeed: Math.round(weatherData.current.wind_speed),
-          description: weatherData.current.weather[0].description
+          temp: Math.round(weatherData.main.temp),
+          aqi: weatherData.main.aqi || warehouse.aqi,
+          uvIndex: Math.round(weatherData.main.uvi || 0),
+          humidity: weatherData.main.humidity,
+          windSpeed: Math.round(weatherData.wind.speed),
+          description: weatherData.weather[0].description
         }
       });
     } catch (error) {
@@ -191,6 +191,5 @@ export async function fetchRealTimeData(): Promise<Warehouse[]> {
     }
   }
 
-  console.log('Updated warehouses:', updatedWarehouses);
   return updatedWarehouses;
 }
