@@ -61,10 +61,6 @@ export default function Dashboard() {
     setSelectedWarehouse(null);
   }, []);
 
-  const handleZoomEnd = useCallback((zoom: number) => {
-    setZoomLevel(zoom);
-  }, []);
-
   // Calculate statistics
   const stats = useMemo(() => {
     const totalWarehouses = initialWarehouses.length;
@@ -114,8 +110,10 @@ export default function Dashboard() {
               <ZoomableGroup 
                 zoom={position.zoom} 
                 center={position.coordinates as [number, number]} 
-                onMoveEnd={setPosition}
-                onZoomEnd={handleZoomEnd}
+                onMoveEnd={(position) => {
+                  setPosition(position);
+                  setZoomLevel(position.zoom);
+                }}
               >
                 <Geographies geography={geoUrl}>
                   {({ geographies }) =>
