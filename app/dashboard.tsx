@@ -9,7 +9,7 @@ import { WarehouseList } from '@/components/ui/WarehouseList';
 import MarkerCluster from '@/components/ui/MarkerCluster';
 import { Feature, Geometry, GeoJsonProperties } from 'geojson';
 import { Tooltip } from 'react-tooltip';
-import { FaGlobeAmericas, FaThermometerHalf, FaWind, FaSun, FaExclamationTriangle } from 'react-icons/fa';
+import { FaGlobeAmericas, FaThermometerHalf, FaWind, FaSun, FaExclamationTriangle, FaUserCog, FaTimes, FaChevronDown, FaChevronUp, FaSignOutAlt, FaCog } from 'react-icons/fa';
 import { scaleLinear } from 'd3-scale';
 
 const geoUrl = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"
@@ -28,6 +28,24 @@ export default function Dashboard() {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredWarehouses, setFilteredWarehouses] = useState(warehousesWithIds);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [expandedAlerts, setExpandedAlerts] = useState<string[]>([]);
+  const [showAlerts, setShowAlerts] = useState(false);
+  const [activeAlerts, setActiveAlerts] = useState<{type: string; count: number}[]>([]);
+  const [userName, setUserName] = useState("John Doe");
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Calculate statistics
+  const stats = useMemo(() => {
+    const totalWarehouses = initialWarehouses.length;
+    const avgTemp = initialWarehouses.reduce((sum, w) => sum + w.temp, 0) / totalWarehouses;
+    const avgAQI = initialWarehouses.reduce((sum, w) => sum + w.aqi, 0) / totalWarehouses;
+    const avgUVI = initialWarehouses.reduce((sum, w) => sum + w.uvIndex, 0) / totalWarehouses;
+    const highTempWarehouses = initialWarehouses.filter(w => w.temp > 90).length;
+    const highAQIWarehouses = initialWarehouses.filter(w => w.aqi > 100).length;
+    const highUVIWarehouses = initialWarehouses.filter(w => w.uvIndex > 7).length;
+    return { totalWarehouses, avgTemp, avgAQI, avgUVI, highTempWarehouses, highAQIWarehouses, highUVIWarehouses };
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -41,6 +59,17 @@ export default function Dashboard() {
     );
     setFilteredWarehouses(filtered);
   }, [searchTerm]);
+
+  useEffect(() => {
+    const newAlerts = [
+      { type: 'High Temperature', count: stats.highTempWarehouses },
+      { type: 'Poor Air Quality', count: stats.highAQIWarehouses },
+      { type: 'High UV Index', count: stats.highUVIWarehouses }
+    ].filter(alert => alert.count > 0);
+
+    setActiveAlerts(newAlerts);
+    setNotificationCount(newAlerts.reduce((sum, alert) => sum + alert.count, 0));
+  }, [stats]);
 
   const handleStateClick = useCallback((geo: Feature<Geometry, GeoJsonProperties>) => {
     setSelectedState(geo);
@@ -61,18 +90,6 @@ export default function Dashboard() {
     setSelectedWarehouse(null);
   }, []);
 
-  // Calculate statistics
-  const stats = useMemo(() => {
-    const totalWarehouses = initialWarehouses.length;
-    const avgTemp = initialWarehouses.reduce((sum, w) => sum + w.temp, 0) / totalWarehouses;
-    const avgAQI = initialWarehouses.reduce((sum, w) => sum + w.aqi, 0) / totalWarehouses;
-    const avgUVI = initialWarehouses.reduce((sum, w) => sum + w.uvIndex, 0) / totalWarehouses;
-    const highTempWarehouses = initialWarehouses.filter(w => w.temp > 90).length;
-    const highAQIWarehouses = initialWarehouses.filter(w => w.aqi > 100).length;
-    const highUVIWarehouses = initialWarehouses.filter(w => w.uvIndex > 7).length;
-    return { totalWarehouses, avgTemp, avgAQI, avgUVI, highTempWarehouses, highAQIWarehouses, highUVIWarehouses };
-  }, []);
-
   const colorScale = useMemo(() => 
     scaleLinear<string>()
       .domain([60, 75, 90])
@@ -80,6 +97,34 @@ export default function Dashboard() {
       .clamp(true),
     []
   );
+
+  const toggleAlert = useCallback((alertType: string) => {
+    setExpandedAlerts(prev => 
+      prev.includes(alertType) 
+        ? prev.filter(a => a !== alertType)
+        : [...prev, alertType]
+    );
+  }, []);
+
+  const alertData = useMemo(() => [
+    { type: 'High Temperature', count: stats.highTempWarehouses, threshold: 90, unit: '°F' },
+    { type: 'Poor Air Quality', count: stats.highAQIWarehouses, threshold: 100, unit: 'AQI' },
+    { type: 'High UV Index', count: stats.highUVIWarehouses, threshold: 7, unit: 'UVI' }
+  ], [stats]);
+
+  const closeAlert = useCallback((type: string) => {
+    setActiveAlerts(prev => prev.filter(alert => alert.type !== type));
+  }, []);
+
+  const handleLogout = () => {
+    // Implement logout logic here
+    console.log('User logged out');
+  };
+
+  const openSettings = () => {
+    // Implement opening settings page/modal logic here
+    console.log('Opening settings');
+  };
 
   return (
     <div className="h-screen bg-black text-green-400 p-2 font-mono relative flex flex-col">
@@ -90,6 +135,51 @@ export default function Dashboard() {
           <div className="flex items-center space-x-4">
             <FaGlobeAmericas className="text-green-500 text-2xl animate-spin-slow" />
             <div className="text-lg">{currentTime.toLocaleTimeString()}</div>
+            <FaSun className="text-yellow-400 text-2xl" title="Current weather" />
+            <div className="relative">
+              <button onClick={() => setShowAlerts(!showAlerts)} className="relative">
+                <FaExclamationTriangle className="text-yellow-500 text-2xl" />
+                {notificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-xs rounded-full h-5 w-5 flex items-center justify-center text-white">
+                    {notificationCount}
+                  </span>
+                )}
+              </button>
+              {showAlerts && activeAlerts.length > 0 && (
+                <div className="absolute right-0 mt-2 w-64 bg-gray-800 border border-green-500 rounded shadow-lg z-50">
+                  {activeAlerts.map(alert => (
+                    <div key={alert.type} className="flex justify-between items-center p-2 border-b border-green-500 last:border-b-0">
+                      <span>{alert.type}: {alert.count}</span>
+                      <button onClick={() => closeAlert(alert.type)} className="text-red-500">
+                        <FaTimes />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center space-x-2 relative">
+              <span className="text-green-500">{userName}</span>
+              <button onClick={() => setShowUserMenu(!showUserMenu)}>
+                <FaUserCog className="text-green-500 text-2xl" title="User settings" />
+              </button>
+              {showUserMenu && (
+                <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-green-500 rounded shadow-lg z-50 top-full">
+                  <button 
+                    onClick={openSettings}
+                    className="block w-full text-left px-4 py-2 hover:bg-gray-700 flex items-center"
+                  >
+                    <FaCog className="mr-2" /> Settings
+                  </button>
+                  <button 
+                    onClick={handleLogout}
+                    className="block w-full text-left px-4 py-2 hover:bg-gray-700 flex items-center"
+                  >
+                    <FaSignOutAlt className="mr-2" /> Logout
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <input
@@ -178,14 +268,39 @@ export default function Dashboard() {
                 <p className="text-sm text-yellow-400">{stats.highUVIWarehouses} warehouses above 7 UVI</p>
               </div>
             </div>
-            <div className="bg-gray-900 p-3 rounded-lg border border-green-400 flex items-center">
-              <FaExclamationTriangle className="text-yellow-500 text-3xl mr-3" />
-              <div>
+            <div className="bg-gray-900 p-3 rounded-lg border border-green-400">
+              <div className="flex items-center cursor-pointer" onClick={() => setExpandedAlerts(prev => prev.length ? [] : alertData.map(a => a.type))}>
+                <FaExclamationTriangle className="text-yellow-500 text-3xl mr-3" />
                 <h2 className="text-lg mb-1 text-green-500">Alerts</h2>
-                <p className="text-sm">High Temperature: {stats.highTempWarehouses}</p>
-                <p className="text-sm">Poor Air Quality: {stats.highAQIWarehouses}</p>
-                <p className="text-sm">High UV Index: {stats.highUVIWarehouses}</p>
+                {expandedAlerts.length ? <FaChevronUp className="ml-auto" /> : <FaChevronDown className="ml-auto" />}
               </div>
+              {alertData.map(alert => (
+                <div key={alert.type} className="mt-2">
+                  <div className="flex items-center cursor-pointer" onClick={() => toggleAlert(alert.type)}>
+                    <p className="text-sm">{alert.type}: {alert.count}</p>
+                    {expandedAlerts.includes(alert.type) ? <FaChevronUp className="ml-auto" /> : <FaChevronDown className="ml-auto" />}
+                  </div>
+                  {expandedAlerts.includes(alert.type) && (
+                    <div className="mt-1 ml-4 text-xs">
+                      {initialWarehouses
+                        .filter(w => {
+                          if (alert.type === 'High Temperature') return w.temp > alert.threshold;
+                          if (alert.type === 'Poor Air Quality') return w.aqi > alert.threshold;
+                          if (alert.type === 'High UV Index') return w.uvIndex > alert.threshold;
+                          return false;
+                        })
+                        .map(w => (
+                          <p key={w.name}>{w.name}: {
+                            alert.type === 'High Temperature' ? w.temp :
+                            alert.type === 'Poor Air Quality' ? w.aqi :
+                            w.uvIndex
+                          } {alert.unit}</p>
+                        ))
+                      }
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </div>
