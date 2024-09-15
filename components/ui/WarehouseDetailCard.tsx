@@ -1,192 +1,186 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Warehouse as WarehouseType } from '@/app/data/warehouseData';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { FaTemperatureHigh, FaWind, FaSun, FaWarehouse, FaMapMarkerAlt, FaBoxOpen, FaTimes, FaDownload, FaChartLine } from 'react-icons/fa';
-import 'leaflet/dist/leaflet.css';
+import React, { useState, useEffect } from 'react';
+import { getWeatherData, getForecastData } from '@/lib/api';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
+import { FaTemperatureHigh, FaWind, FaTint, FaCloudSun, FaCompass, FaCloudRain } from 'react-icons/fa';
+import { format } from 'date-fns';
 
-interface WarehouseDetailCardProps {
-  warehouse: WarehouseType;
-  onClose: () => void;
-  comparisonWarehouse?: WarehouseType;
+interface Warehouse {
+  name: string;
+  city: string;
+  state: string;
+  latitude: number;
+  longitude: number;
 }
 
-type TimeRange = '24h' | '7d' | '30d';
+interface WeatherData {
+  main: {
+    temp: number;
+    humidity: number;
+    pressure: number;
+    feels_like: number;
+  };
+  weather: Array<{ description: string; main: string }>;
+  wind: {
+    speed: number;
+    deg: number;
+  };
+  rain?: { '1h': number };
+}
 
-export function WarehouseDetailCard({ warehouse, onClose, comparisonWarehouse }: WarehouseDetailCardProps) {
-  const [timeRange, setTimeRange] = useState<TimeRange>('24h');
+interface ForecastData {
+  date: string;
+  temp: number;
+  time: string;
+  temp_min: number;
+  temp_max: number;
+  pop: number;
+}
+
+export function WarehouseDetailCard({ warehouse, onClose }: { warehouse: Warehouse; onClose: () => void }) {
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
+  const [forecastData, setForecastData] = useState<ForecastData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const mockHistoricalData = useMemo(() => {
-    const generateData = (baseValue: number, hourlyVariation: number, dataPoints: number) => {
-      let value = baseValue;
-      return Array.from({ length: dataPoints }, () => {
-        value += (Math.random() - 0.5) * hourlyVariation;
-        return Math.round(value * 10) / 10;
-      });
-    };
-
-    const dataPoints = timeRange === '24h' ? 24 : timeRange === '7d' ? 7 : 30;
-    const temperatures = generateData(warehouse.temp, 1, dataPoints);
-    const aqiValues = generateData(warehouse.aqi, 2, dataPoints);
-    const uvIndices = generateData(warehouse.uvIndex, 0.2, dataPoints);
-
-    return Array.from({ length: dataPoints }, (_, i) => ({
-      time: timeRange === '24h' ? `${i}:00` : `Day ${i + 1}`,
-      temperature: temperatures[i],
-      aqi: Math.max(0, Math.round(aqiValues[i])),
-      uvIndex: Math.max(0, uvIndices[i]),
-    }));
-  }, [warehouse.temp, warehouse.aqi, warehouse.uvIndex, timeRange]);
-
-  const comparisonData = useMemo(() => {
-    if (!comparisonWarehouse) return null;
-    // Generate comparison data similar to mockHistoricalData
-  }, [comparisonWarehouse, timeRange]);
-
   useEffect(() => {
-    setIsLoading(true);
-    setError(null);
-    // Simulate data fetching
-    setTimeout(() => {
-      if (Math.random() > 0.9) {
-        setError('Failed to load data. Please try again.');
-      } else {
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const [weather, forecast] = await Promise.all([
+          getWeatherData(warehouse.latitude, warehouse.longitude),
+          getForecastData(warehouse.latitude, warehouse.longitude)
+        ]);
+        setWeatherData(weather);
+        setForecastData(forecast);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        setError(error instanceof Error ? error.message : 'An unknown error occurred');
+      } finally {
         setIsLoading(false);
       }
-    }, 1000);
-  }, [timeRange, warehouse, comparisonWarehouse]);
+    };
 
-  const exportData = () => {
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + mockHistoricalData.map(row => Object.values(row).join(",")).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${warehouse.name}_historical_data.csv`);
-    document.body.appendChild(link);
-    link.click();
+    fetchData();
+  }, [warehouse.latitude, warehouse.longitude]);
+
+  if (isLoading) return <div className="text-center p-4">Loading weather data...</div>;
+  if (error) return <div className="text-center p-4 text-red-500">Error: {error}</div>;
+
+  const windDirection = (deg: number) => {
+    const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    return directions[Math.round(deg / 45) % 8];
   };
 
-  if (isLoading) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <Card className="w-full max-w-4xl mx-auto bg-gray-900 text-green-400 border-green-500 shadow-lg p-6">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-500 mx-auto"></div>
-            <p className="mt-4">Loading warehouse data...</p>
-          </div>
-        </Card>
-      </div>
-    );
-  }
+  const formatDate = (dateString: string) => format(new Date(dateString), 'MMM d');
 
-  if (error) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <Card className="w-full max-w-4xl mx-auto bg-gray-900 text-green-400 border-green-500 shadow-lg p-6">
-          <div className="text-center">
-            <p className="text-red-500 mb-4">{error}</p>
-            <button onClick={() => window.location.reload()} className="bg-green-500 text-black px-4 py-2 rounded">
-              Retry
-            </button>
-          </div>
-        </Card>
-      </div>
-    );
-  }
+  const getBarColor = (temp: number) => temp >= 90 ? '#EF4444' : '#82ca9d';
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-6xl mx-auto bg-gray-900 text-green-400 border-green-500 shadow-lg overflow-y-auto max-h-[90vh]">
-        <CardHeader className="border-b border-green-500">
-          <CardTitle className="flex justify-between items-center">
-            <span className="flex items-center">
-              <FaWarehouse className="mr-2" />
-              {warehouse.name}
-            </span>
-            <button onClick={onClose} className="text-green-400 hover:text-green-300">
-              <FaTimes size={24} />
-            </button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 p-4">
-          <div>
-            <h4 className="text-lg font-semibold mb-2">Warehouse Information</h4>
-            <p className="flex items-center"><FaMapMarkerAlt className="mr-2" /> Location: {warehouse.location}</p>
-            <p className="flex items-center"><FaBoxOpen className="mr-2" /> Type: {warehouse.type}</p>
-            <p className="flex items-center"><FaMapMarkerAlt className="mr-2" /> Address: {warehouse.address}</p>
-          </div>
-          <div>
-            <h4 className="text-lg font-semibold mb-2">Current Conditions</h4>
-            <p className="flex items-center"><FaTemperatureHigh className="mr-2" /> Temperature: {warehouse.temp}°F</p>
-            <p className="flex items-center"><FaWind className="mr-2" /> AQI: {warehouse.aqi}</p>
-            <p className="flex items-center"><FaSun className="mr-2" /> UV Index: {warehouse.uvIndex}</p>
-          </div>
-          <div className="col-span-1 md:col-span-2">
-            <h4 className="text-lg font-semibold mb-2">Weather Forecast</h4>
-            {/* Add a mock 5-day forecast here */}
-            <div className="flex justify-between">
-              {[1, 2, 3, 4, 5].map(day => (
-                <div key={day} className="text-center">
-                  <p>Day {day}</p>
-                  <FaSun className="mx-auto my-2" />
-                  <p>{Math.round(warehouse.temp + (Math.random() - 0.5) * 10)}°F</p>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="col-span-1 md:col-span-2">
-            <h4 className="text-lg font-semibold mb-2">Historical Data</h4>
-            <div className="flex justify-start space-x-4 mb-4">
-              <button
-                onClick={() => setTimeRange('24h')}
-                className={`px-3 py-1 rounded ${timeRange === '24h' ? 'bg-green-500 text-black' : 'bg-gray-700 text-green-400'}`}
-              >
-                24 Hours
-              </button>
-              <button
-                onClick={() => setTimeRange('7d')}
-                className={`px-3 py-1 rounded ${timeRange === '7d' ? 'bg-green-500 text-black' : 'bg-gray-700 text-green-400'}`}
-              >
-                7 Days
-              </button>
-              <button
-                onClick={() => setTimeRange('30d')}
-                className={`px-3 py-1 rounded ${timeRange === '30d' ? 'bg-green-500 text-black' : 'bg-gray-700 text-green-400'}`}
-              >
-                30 Days
-              </button>
-              <button onClick={exportData} className="bg-blue-500 text-white px-3 py-1 rounded flex items-center">
-                <FaDownload className="mr-2" /> Export
-              </button>
-            </div>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={mockHistoricalData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
-                <XAxis dataKey="time" stroke="#22c55e" />
-                <YAxis stroke="#22c55e" />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #22c55e' }}
-                  labelStyle={{ color: '#22c55e' }}
+    <div className="warehouse-detail-card bg-gray-800 p-4 rounded-lg shadow-lg w-[95vw] h-[95vh] flex flex-col text-green-400 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+      <h2 className="text-2xl font-bold mb-2 text-green-500">{warehouse.name}</h2>
+      <p className="mb-2 text-sm">Location: {warehouse.city}</p>
+      
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-4">
+        <div className="bg-gray-700 p-2 rounded-lg flex flex-col items-center">
+          <FaTemperatureHigh className="text-2xl mb-2 text-orange-400" />
+          <p className="text-sm text-gray-300">Feels Like</p>
+          <p className="text-xl font-bold text-orange-400">{weatherData?.main.feels_like.toFixed(1)}°F</p>
+        </div>
+        <div className="bg-gray-700 p-2 rounded-lg flex flex-col items-center">
+          <FaWind className="text-2xl mb-2 text-blue-400" />
+          <p className="text-sm text-gray-300">Wind</p>
+          <p className="text-xl font-bold text-blue-400">{weatherData?.wind.speed.toFixed(1)} mph</p>
+          <p className="text-sm text-gray-300">{windDirection(weatherData?.wind.deg || 0)}</p>
+        </div>
+        <div className="bg-gray-700 p-2 rounded-lg flex flex-col items-center">
+          <FaTint className="text-2xl mb-2 text-cyan-400" />
+          <p className="text-sm text-gray-300">Humidity</p>
+          <p className="text-xl font-bold text-cyan-400">{weatherData?.main.humidity}%</p>
+        </div>
+        <div className="bg-gray-700 p-2 rounded-lg flex flex-col items-center">
+          <FaCloudRain className="text-2xl mb-2 text-indigo-400" />
+          <p className="text-sm text-gray-300">Precipitation</p>
+          <p className="text-xl font-bold text-indigo-400">{weatherData?.rain?.['1h'] || 0} mm</p>
+        </div>
+        <div className="bg-gray-700 p-2 rounded-lg flex flex-col items-center">
+          <FaCloudSun className="text-2xl mb-2 text-yellow-400" />
+          <p className="text-sm text-gray-300">Weather</p>
+          <p className="text-xl font-bold text-yellow-400">{weatherData?.weather[0].main}</p>
+        </div>
+        <div className="bg-gray-700 p-2 rounded-lg flex flex-col items-center">
+          <FaCompass className="text-2xl mb-2 text-green-400" />
+          <p className="text-sm text-gray-300">Pressure</p>
+          <p className="text-xl font-bold text-green-400">{weatherData?.main.pressure} hPa</p>
+        </div>
+      </div>
+
+      <div className="flex-grow grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="flex flex-col">
+          <h3 className="text-xl font-bold mb-2">5-Day Forecast</h3>
+          <div className="flex-grow">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={forecastData}>
+                <XAxis 
+                  dataKey="date" 
+                  tickFormatter={formatDate}
+                  stroke="#9CA3AF"
                 />
-                <Legend />
-                <Line type="monotone" dataKey="temperature" stroke="#ef4444" name="Temperature (°F)" />
-                <Line type="monotone" dataKey="aqi" stroke="#3b82f6" name="AQI" />
-                <Line type="monotone" dataKey="uvIndex" stroke="#eab308" name="UV Index" />
-                {comparisonData && (
-                  <>
-                    <Line type="monotone" dataKey="temperature" stroke="#ef4444" name="Comparison Temp (°F)" strokeDasharray="5 5" />
-                    <Line type="monotone" dataKey="aqi" stroke="#3b82f6" name="Comparison AQI" strokeDasharray="5 5" />
-                    <Line type="monotone" dataKey="uvIndex" stroke="#eab308" name="Comparison UV" strokeDasharray="5 5" />
-                  </>
+                <YAxis stroke="#9CA3AF" />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#374151', border: 'none' }}
+                  labelFormatter={formatDate}
+                />
+                <Line type="monotone" dataKey="temp" stroke="#8884d8" strokeWidth={2} />
+                <Line type="monotone" dataKey="temp_min" stroke="#82ca9d" strokeWidth={2} />
+                <Line type="monotone" dataKey="temp_max" stroke="#ffc658" strokeWidth={2} />
+                {forecastData[0].pop !== undefined && (
+                  <Line type="monotone" dataKey="pop" stroke="#8884d8" strokeWidth={2} yAxisId="right" />
                 )}
+                <YAxis yAxisId="right" orientation="right" stroke="#8884d8" />
               </LineChart>
             </ResponsiveContainer>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        
+        <div className="flex flex-col">
+          <h3 className="text-xl font-bold mb-2">Hourly Forecast</h3>
+          <div className="flex-grow">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={forecastData.slice(0, 8)}>
+                <XAxis 
+                  dataKey="time" 
+                  stroke="#9CA3AF"
+                  tickFormatter={(time) => time.slice(0, 5)} // Display only HH:MM
+                  interval={0} // Show all ticks
+                  tick={{ fontSize: 12 }} // Adjust font size
+                  padding={{ left: 10, right: 10 }} // Add padding
+                />
+                <YAxis 
+                  stroke="#9CA3AF"
+                  tickFormatter={(temp) => `${temp}°F`} // Add °F to temperature
+                />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#374151', border: 'none' }}
+                  formatter={(value) => [`${value}°F`, 'Temperature']} // Format tooltip
+                />
+                <Bar dataKey="temp">
+                  {forecastData.slice(0, 8).map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={getBarColor(entry.temp)} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      <button 
+        onClick={onClose}
+        className="mt-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+      >
+        Close
+      </button>
     </div>
   );
 }

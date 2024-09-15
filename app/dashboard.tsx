@@ -9,7 +9,7 @@ import { WarehouseList } from '@/components/ui/WarehouseList';
 import MarkerCluster from '@/components/ui/MarkerCluster';
 import { Feature, Geometry, GeoJsonProperties } from 'geojson';
 import { Tooltip } from 'react-tooltip';
-import { FaGlobeAmericas, FaThermometerHalf, FaWind, FaSun, FaExclamationTriangle, FaUserCog, FaTimes, FaChevronDown, FaChevronUp, FaSignOutAlt, FaCog } from 'react-icons/fa';
+import { FaGlobeAmericas, FaThermometerHalf, FaWind, FaSun, FaExclamationTriangle, FaUserCog, FaTimes, FaChevronDown, FaChevronUp, FaSignOutAlt, FaCog, FaHome } from 'react-icons/fa';
 import { scaleLinear } from 'd3-scale';
 
 const geoUrl = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"
@@ -34,6 +34,8 @@ export default function Dashboard() {
   const [activeAlerts, setActiveAlerts] = useState<{type: string; count: number}[]>([]);
   const [userName, setUserName] = useState("John Doe");
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [homeFacility, setHomeFacility] = useState(initialWarehouses[0]);
+  const [isHomeFacilityDropdownOpen, setIsHomeFacilityDropdownOpen] = useState(false);
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -78,6 +80,7 @@ export default function Dashboard() {
   const handleWarehouseClick = useCallback((data: typeof initialWarehouses[0] | { pointCount: number; address: string }, event: React.MouseEvent) => {
     event.stopPropagation();
     if ('name' in data) {
+      console.log('Setting selected warehouse:', data);
       setSelectedWarehouse(data);
     } else {
       // Handle cluster click if needed
@@ -125,6 +128,14 @@ export default function Dashboard() {
     // Implement opening settings page/modal logic here
     console.log('Opening settings');
   };
+
+  useEffect(() => {
+    console.log('selectedWarehouse:', selectedWarehouse);
+  }, [selectedWarehouse]);
+
+  useEffect(() => {
+    console.log('showWarehouseList:', showWarehouseList);
+  }, [showWarehouseList]);
 
   return (
     <div className="h-screen bg-black text-green-400 p-2 font-mono relative flex flex-col">
@@ -233,7 +244,10 @@ export default function Dashboard() {
                 </Geographies>
                 <MarkerCluster
                   points={filteredWarehouses}
-                  onClick={handleWarehouseClick}
+                  onClick={(data, event) => {
+                    console.log('Pin clicked:', data);
+                    handleWarehouseClick(data, event);
+                  }}
                   onMouseEnter={(data) => setTooltipContent('name' in data ? data.name : `Cluster of ${data.pointCount} warehouses`)}
                   onMouseLeave={() => setTooltipContent("")}
                   showHeatMap={showHeatMap}
@@ -244,6 +258,64 @@ export default function Dashboard() {
             <Tooltip id="tooltip" content={tooltipContent} />
           </div>
           <div className="w-1/3 space-y-2 overflow-auto">
+            <div className="bg-gray-900 p-3 rounded-lg border border-green-400">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center">
+                  <FaHome className="text-green-500 text-2xl mr-2" />
+                  <h2 className="text-lg text-green-500">Home Facility</h2>
+                </div>
+                <div className="relative">
+                  <button 
+                    onClick={() => setIsHomeFacilityDropdownOpen(!isHomeFacilityDropdownOpen)}
+                    className="flex items-center bg-green-500 text-black px-2 py-1 rounded text-sm hover:bg-green-400 transition-colors"
+                  >
+                    Select <FaChevronDown className="ml-1" />
+                  </button>
+                  {isHomeFacilityDropdownOpen && (
+                    <div className="absolute right-0 mt-1 w-48 bg-gray-800 border border-green-500 rounded shadow-lg z-10 max-h-60 overflow-y-auto">
+                      {initialWarehouses.map((warehouse) => (
+                        <button
+                          key={warehouse.name}
+                          onClick={() => {
+                            setHomeFacility(warehouse);
+                            setIsHomeFacilityDropdownOpen(false);
+                          }}
+                          className="block w-full text-left px-4 py-2 hover:bg-gray-700 text-green-400"
+                        >
+                          {warehouse.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <p className="text-xl font-bold">{homeFacility.name}</p>
+              <p className="text-sm">{homeFacility.location}</p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <div>
+                  <p className="text-xs text-gray-400">Temperature</p>
+                  <p className="text-sm font-semibold">{homeFacility.temp}°F</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">AQI</p>
+                  <p className="text-sm font-semibold">{homeFacility.aqi}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">UV Index</p>
+                  <p className="text-sm font-semibold">{homeFacility.uvIndex}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">Type</p>
+                  <p className="text-sm font-semibold">{homeFacility.type}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedWarehouse(homeFacility)}
+                className="mt-2 w-full bg-green-500 text-black px-2 py-1 rounded text-sm hover:bg-green-400 transition-colors"
+              >
+                View Details
+              </button>
+            </div>
             <div className="bg-gray-900 p-3 rounded-lg border border-green-400 flex items-center">
               <FaThermometerHalf className="text-red-500 text-3xl mr-3" />
               <div>
@@ -306,7 +378,10 @@ export default function Dashboard() {
         </div>
         <div className="mt-2 flex space-x-2">
           <button 
-            onClick={() => setShowWarehouseList(true)}
+            onClick={() => {
+              console.log('View All Cards clicked');
+              setShowWarehouseList(true);
+            }}
             className="bg-green-500 text-black px-2 py-1 rounded text-sm hover:bg-green-400 transition-colors"
           >
             Show All Warehouses
@@ -332,15 +407,23 @@ export default function Dashboard() {
         />
       )}
       {selectedWarehouse && (
-        <WarehouseDetailCard
-          warehouse={selectedWarehouse}
-          onClose={() => setSelectedWarehouse(null)}
-        />
+        <div className="warehouse-detail-card fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-gray-800 p-4 rounded-lg shadow-lg">
+          <WarehouseDetailCard
+            warehouse={selectedWarehouse}
+            onClose={() => {
+              console.log('Closing WarehouseDetailCard');
+              setSelectedWarehouse(null);
+            }}
+          />
+        </div>
       )}
       {showWarehouseList && (
         <WarehouseList
           warehouses={warehousesWithIds}
-          onClose={() => setShowWarehouseList(false)}
+          onClose={() => {
+            console.log('Closing WarehouseList');
+            setShowWarehouseList(false);
+          }}
         />
       )}
     </div>
