@@ -1,6 +1,17 @@
 import { Warehouse } from '../../app/types/warehouseTypes';
 
-export default function WeatherInfo({ weather, temp }: { weather: Warehouse['weather'], temp: number }) {
+type WeatherInfoProps = {
+  weather: {
+    description: string;
+    humidity: number;
+    windSpeed: number;
+    uvIndex: number;
+    aqi: number;
+  };
+  temp: number;
+};
+
+export default function WeatherInfo({ weather, temp }: WeatherInfoProps) {
   return (
     <div>
       <h2>Current Weather</h2>

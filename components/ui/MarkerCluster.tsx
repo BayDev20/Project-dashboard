@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react';
 import { Marker } from 'react-simple-maps';
-import { Warehouse } from '@/app/data/warehouseData';
+import { Warehouse as WarehouseType } from '@/app/types/warehouseTypes';
 import supercluster from 'supercluster';
 
 interface MarkerClusterProps {
-  points: Warehouse[];
-  onClick: (data: Warehouse | { pointCount: number, address: string }, event: React.MouseEvent) => void;
-  onMouseEnter: (data: Warehouse | { pointCount: number, address: string }) => void;
+  points: WarehouseType[];
+  onClick: (data: WarehouseType | { pointCount: number, address: string }, event: React.MouseEvent) => void;
+  onMouseEnter: (data: WarehouseType | { pointCount: number, address: string }) => void;
   onMouseLeave: () => void;
   showHeatMap: boolean;
   colorScale: (temp: number) => string;
@@ -71,7 +71,7 @@ const MarkerCluster: React.FC<MarkerClusterProps> = ({ points, onClick, onMouseE
             <Marker key={`warehouse-${warehouseId}`} coordinates={[longitude, latitude]}>
               <circle
                 r={4}
-                fill={showHeatMap ? `rgba(255, ${255 - warehouse.temp * 2}, 0, 0.7)` : "#F00"}
+                fill={showHeatMap ? colorScale(warehouse.weather.temp) : "#F00"}
                 stroke="#fff"
                 strokeWidth={2}
                 onClick={(e: React.MouseEvent) => onClick(warehouse, e)}

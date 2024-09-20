@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from "react-simple-maps";
 import { geoCentroid } from "d3-geo";
-import { Warehouse } from '@/app/data/warehouseData';
+import { Warehouse } from '@/app/types/warehouseTypes';
 import { Feature, Geometry, GeoJsonProperties } from 'geojson';
 
 const geoUrl = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json";
@@ -82,9 +82,13 @@ export function StateDetailCard({ stateName, warehouses, onClose, stateFeature, 
               <div className="grid grid-cols-2 gap-4">
                 <InfoItem label="Location" value={selectedWarehouse.location} />
                 <InfoItem label="Type" value={selectedWarehouse.type} />
-                <InfoItem label="Temperature" value={`${selectedWarehouse.temp}°F`} />
-                <InfoItem label="AQI" value={selectedWarehouse.aqi.toString()} />
-                <InfoItem label="UV Index" value={selectedWarehouse.uvIndex.toString()} />
+                <InfoItem label="Temperature" value={`${(selectedWarehouse.weather.temp - 273.15).toFixed(1)}°C`} />
+                <InfoItem label="Humidity" value={`${selectedWarehouse.weather.humidity}%`} />
+                <InfoItem label="UV Index" value={selectedWarehouse.weather.uvi.toFixed(1)} />
+                <InfoItem label="Wind Speed" value={`${selectedWarehouse.weather.wind_speed.toFixed(1)} m/s`} />
+                {selectedWarehouse.weather.description && (
+                  <InfoItem label="Description" value={selectedWarehouse.weather.description} />
+                )}
               </div>
               <p className="mt-4"><strong>Address:</strong> {selectedWarehouse.address}</p>
               <button 

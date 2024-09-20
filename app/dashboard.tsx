@@ -11,42 +11,125 @@ import { Feature, Geometry, GeoJsonProperties } from 'geojson';
 import { Tooltip } from 'react-tooltip';
 import { FaGlobeAmericas, FaThermometerHalf, FaWind, FaSun, FaExclamationTriangle, FaUserCog, FaTimes, FaChevronDown, FaChevronUp, FaSignOutAlt, FaCog, FaHome } from 'react-icons/fa';
 import { scaleLinear } from 'd3-scale';
+import { getWeatherData } from '../lib/api';
+import { Warehouse } from '@/app/types/warehouseTypes';
 
 const geoUrl = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"
-
-const warehousesWithIds = initialWarehouses.map((w, index) => ({ ...w, id: index + 1 }));
 
 export default function Dashboard() {
   const [position, setPosition] = useState({ coordinates: [-96, 38], zoom: 1 });
   const [tooltipContent, setTooltipContent] = useState("");
   const [selectedState, setSelectedState] = useState<Feature<Geometry, GeoJsonProperties> | null>(null);
-  const [selectedWarehouse, setSelectedWarehouse] = useState<typeof initialWarehouses[0] | null>(null);
+  const [selectedWarehouse, setSelectedWarehouse] = useState<Warehouse | null>(null);
   const [showWarehouseList, setShowWarehouseList] = useState(false);
   const [hoveredState, setHoveredState] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showHeatMap, setShowHeatMap] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filteredWarehouses, setFilteredWarehouses] = useState(warehousesWithIds);
+  const [filteredWarehouses, setFilteredWarehouses] = useState<Warehouse[]>([]);
   const [notificationCount, setNotificationCount] = useState(0);
   const [expandedAlerts, setExpandedAlerts] = useState<string[]>([]);
   const [showAlerts, setShowAlerts] = useState(false);
   const [activeAlerts, setActiveAlerts] = useState<{type: string; count: number}[]>([]);
   const [userName, setUserName] = useState("John Doe");
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [homeFacility, setHomeFacility] = useState(initialWarehouses[0]);
+  const [homeFacility, setHomeFacility] = useState<Warehouse | null>(null);
   const [isHomeFacilityDropdownOpen, setIsHomeFacilityDropdownOpen] = useState(false);
+  const [weatherData, setWeatherData] = useState<any>(null);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [stats, setStats] = useState({
+    avgTemp: 0,
+    highTempWarehouses: 0,
+    avgUVI: 0,
+    highUVIWarehouses: 0
+  });
+  const [alertData, setAlertData] = useState<{ type: string; count: number; threshold: number; unit: string }[]>([]);
 
-  // Calculate statistics
-  const stats = useMemo(() => {
-    const totalWarehouses = initialWarehouses.length;
-    const avgTemp = initialWarehouses.reduce((sum, w) => sum + w.temp, 0) / totalWarehouses;
-    const avgAQI = initialWarehouses.reduce((sum, w) => sum + w.aqi, 0) / totalWarehouses;
-    const avgUVI = initialWarehouses.reduce((sum, w) => sum + w.uvIndex, 0) / totalWarehouses;
-    const highTempWarehouses = initialWarehouses.filter(w => w.temp > 90).length;
-    const highAQIWarehouses = initialWarehouses.filter(w => w.aqi > 100).length;
-    const highUVIWarehouses = initialWarehouses.filter(w => w.uvIndex > 7).length;
-    return { totalWarehouses, avgTemp, avgAQI, avgUVI, highTempWarehouses, highAQIWarehouses, highUVIWarehouses };
+  useEffect(() => {
+    async function fetchWeatherData() {
+      const weatherPromises = initialWarehouses.map(async (warehouse) => {
+        const data = await getWeatherData(warehouse.latitude, warehouse.longitude);
+        return {
+          ...warehouse,
+          id: warehouse.name,
+          weather: {
+            temp: data.current.temp,
+            feels_like: data.current.feels_like,
+            humidity: data.current.humidity,
+            uvi: data.current.uvi,
+            wind_speed: data.current.wind_speed,
+            wind_deg: data.current.wind_deg,
+            description: data.current.weather[0].description,
+            forecast: {
+              hourly: data.hourly,
+              daily: data.daily
+            },
+            weather: data.current.weather
+          },
+          alerts: data.alerts || []
+        };
+      });
+      const warehousesWithWeather = await Promise.all(weatherPromises);
+      setWarehouses(warehousesWithWeather);
+      updateDashboardStats(warehousesWithWeather);
+      if (warehousesWithWeather.length > 0) {
+        setWeatherData(warehousesWithWeather[0]);
+      }
+    }
+    
+    fetchWeatherData();
+  }, []);
+
+  function updateDashboardStats(warehouses: Warehouse[]) {
+    const avgTemp = warehouses.reduce((sum, w) => sum + w.weather.temp, 0) / warehouses.length;
+    const highTempWarehouses = warehouses.filter(w => w.weather.temp > 303.15).length; // 30°C = 303.15K
+    const avgUVI = warehouses.reduce((sum, w) => sum + w.weather.uvi, 0) / warehouses.length;
+    const highUVIWarehouses = warehouses.filter(w => w.weather.uvi > 7).length;
+    
+    setStats({
+      avgTemp,
+      highTempWarehouses,
+      avgUVI,
+      highUVIWarehouses
+    });
+    
+    setAlertData([
+      { type: 'High Temperature', count: highTempWarehouses, threshold: 303.15, unit: 'K' },
+      { type: 'High UV Index', count: highUVIWarehouses, threshold: 7, unit: '' }
+    ]);
+    
+    if (warehouses.length > 0) {
+      setHomeFacility(warehouses[0]);
+    }
+  }
+
+  const handleWarehouseClick = useCallback((data: Warehouse | { pointCount: number; address: string }, event: React.MouseEvent) => {
+    event.stopPropagation();
+    if ('name' in data && 'weather' in data) {
+      setSelectedWarehouse({
+        ...data,
+        id: data.name,
+        weather: {
+          ...data.weather,
+          temp: data.weather.temp ?? 0,
+          feels_like: data.weather.feels_like ?? 0,
+          humidity: data.weather.humidity ?? 0,
+          uvi: data.weather.uvi ?? 0,
+          wind_speed: data.weather.wind_speed ?? 0,
+          wind_deg: data.weather.wind_deg ?? 0,
+          description: data.weather.weather[0]?.description ?? '',
+          weather: data.weather.weather?.map(w => ({
+            id: w.id ?? 0,
+            main: w.main ?? '',
+            description: w.description ?? '',
+            icon: w.icon ?? ''
+          })) ?? []
+        }
+      });
+    } else {
+      console.log(`Clicked cluster with ${(data as { pointCount: number }).pointCount} warehouses`);
+    }
   }, []);
 
   useEffect(() => {
@@ -55,37 +138,22 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    const filtered = warehousesWithIds.filter(w => 
+    const filtered = warehouses.filter(w => 
       w.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       w.state.toLowerCase().includes(searchTerm.toLowerCase())
     );
     setFilteredWarehouses(filtered);
-  }, [searchTerm]);
+  }, [searchTerm, warehouses]);
 
   useEffect(() => {
-    const newAlerts = [
-      { type: 'High Temperature', count: stats.highTempWarehouses },
-      { type: 'Poor Air Quality', count: stats.highAQIWarehouses },
-      { type: 'High UV Index', count: stats.highUVIWarehouses }
-    ].filter(alert => alert.count > 0);
+    const newAlerts = alertData.filter(alert => alert.count > 0);
 
     setActiveAlerts(newAlerts);
     setNotificationCount(newAlerts.reduce((sum, alert) => sum + alert.count, 0));
-  }, [stats]);
+  }, [alertData]);
 
   const handleStateClick = useCallback((geo: Feature<Geometry, GeoJsonProperties>) => {
     setSelectedState(geo);
-  }, []);
-
-  const handleWarehouseClick = useCallback((data: typeof initialWarehouses[0] | { pointCount: number; address: string }, event: React.MouseEvent) => {
-    event.stopPropagation();
-    if ('name' in data) {
-      console.log('Setting selected warehouse:', data);
-      setSelectedWarehouse(data);
-    } else {
-      // Handle cluster click if needed
-      console.log(`Clicked cluster with ${data.pointCount} warehouses`);
-    }
   }, []);
 
   const handleMapClick = useCallback(() => {
@@ -108,12 +176,6 @@ export default function Dashboard() {
         : [...prev, alertType]
     );
   }, []);
-
-  const alertData = useMemo(() => [
-    { type: 'High Temperature', count: stats.highTempWarehouses, threshold: 90, unit: '°F' },
-    { type: 'Poor Air Quality', count: stats.highAQIWarehouses, threshold: 100, unit: 'AQI' },
-    { type: 'High UV Index', count: stats.highUVIWarehouses, threshold: 7, unit: 'UVI' }
-  ], [stats]);
 
   const closeAlert = useCallback((type: string) => {
     setActiveAlerts(prev => prev.filter(alert => alert.type !== type));
@@ -243,10 +305,23 @@ export default function Dashboard() {
                   }
                 </Geographies>
                 <MarkerCluster
-                  points={filteredWarehouses}
+                  points={warehouses.map(warehouse => ({
+                    ...warehouse,
+                    temp: warehouse.weather.temp,
+                    uvIndex: warehouse.weather.uvi
+                  }))}
                   onClick={(data, event) => {
                     console.log('Pin clicked:', data);
-                    handleWarehouseClick(data, event);
+                    if ('id' in data && 'name' in data && 'state' in data && 'location' in data && 'weather' in data) {
+                      const warehouseData: Warehouse = {
+                        ...data as Warehouse,
+                        type: 'Warehouse',
+                        address: data.location,
+                      };
+                      handleWarehouseClick(warehouseData, event);
+                    } else {
+                      console.log('Clicked on a cluster');
+                    }
                   }}
                   onMouseEnter={(data) => setTooltipContent('name' in data ? data.name : `Cluster of ${data.pointCount} warehouses`)}
                   onMouseLeave={() => setTooltipContent("")}
@@ -258,6 +333,56 @@ export default function Dashboard() {
             <Tooltip id="tooltip" content={tooltipContent} />
           </div>
           <div className="w-1/3 space-y-2 overflow-auto">
+            {weatherData && (
+              <>
+                <div className="bg-gray-900 p-3 rounded-lg border border-green-400">
+                  <h2 className="text-xl font-bold mb-2">Current Weather</h2>
+                  <p>Temperature: {(weatherData.weather.temp - 273.15).toFixed(1)}°C</p>
+                  <p>Feels Like: {(weatherData.weather.feels_like - 273.15).toFixed(1)}°C</p>
+                  <p>Humidity: {weatherData.weather.humidity}%</p>
+                  <p>UV Index: {weatherData.weather.uvi}</p>
+                  <p>Wind Speed: {weatherData.weather.wind_speed} m/s</p>
+                  <p>Wind Direction: {weatherData.weather.wind_deg}°</p>
+                  <p>Description: {weatherData.weather.weather[0].description}</p>
+                </div>
+                <div className="bg-gray-900 p-3 rounded-lg border border-green-400">
+                  <h2 className="text-xl font-bold mb-2">Hourly Forecast</h2>
+                  {weatherData.weather.forecast.hourly.slice(0, 24).map((hour: any, index: number) => (
+                    <div key={index} className="mb-2">
+                      <p>Time: {hour.dt}</p>
+                      <p>Temperature: {(hour.temp - 273.15).toFixed(1)}°C</p>
+                      <p>Description: {hour.weather[0].description}</p>
+                    </div>
+                  ))}
+                </div>
+                {weatherData && weatherData.weather.forecast.daily ? (
+                  <div className="bg-gray-900 p-3 rounded-lg border border-green-400">
+                    <h2 className="text-xl font-bold mb-2">Daily Forecast</h2>
+                    {weatherData.weather.forecast.daily.map((day: any, index: number) => (
+                      <div key={index} className="mb-2">
+                        <p>Date: {new Date(day.dt * 1000).toLocaleDateString()}</p>
+                        <p>Max Temp: {(day.temp.max - 273.15).toFixed(1)}°C</p>
+                        <p>Min Temp: {(day.temp.min - 273.15).toFixed(1)}°C</p>
+                        <p>Description: {day.weather[0].description}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {weatherData.alerts && weatherData.alerts.length > 0 && (
+                  <div className="bg-gray-900 p-3 rounded-lg border border-red-400">
+                    <h2 className="text-xl font-bold mb-2">Weather Alerts</h2>
+                    {weatherData.alerts.map((alert: any, index: number) => (
+                      <div key={index} className="mb-2">
+                        <p>Event: {alert.event}</p>
+                        <p>Start: {new Date(alert.start * 1000).toLocaleString()}</p>
+                        <p>End: {new Date(alert.end * 1000).toLocaleString()}</p>
+                        <p>Description: {alert.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
             <div className="bg-gray-900 p-3 rounded-lg border border-green-400">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center">
@@ -273,7 +398,7 @@ export default function Dashboard() {
                   </button>
                   {isHomeFacilityDropdownOpen && (
                     <div className="absolute right-0 mt-1 w-48 bg-gray-800 border border-green-500 rounded shadow-lg z-10 max-h-60 overflow-y-auto">
-                      {initialWarehouses.map((warehouse) => (
+                      {warehouses.map((warehouse) => (
                         <button
                           key={warehouse.name}
                           onClick={() => {
@@ -289,24 +414,26 @@ export default function Dashboard() {
                   )}
                 </div>
               </div>
-              <p className="text-xl font-bold">{homeFacility.name}</p>
-              <p className="text-sm">{homeFacility.location}</p>
+              <p className="text-xl font-bold">{homeFacility?.name}</p>
+              <p className="text-sm">{homeFacility?.location}</p>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <div>
                   <p className="text-xs text-gray-400">Temperature</p>
-                  <p className="text-sm font-semibold">{homeFacility.temp}°F</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">AQI</p>
-                  <p className="text-sm font-semibold">{homeFacility.aqi}</p>
+                  <p className="text-sm font-semibold">
+                    {((homeFacility?.weather?.temp ?? 273.15) - 273.15).toFixed(1)}°C
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-400">UV Index</p>
-                  <p className="text-sm font-semibold">{homeFacility.uvIndex}</p>
+                  <p className="text-sm font-semibold">{homeFacility?.weather.uvi.toFixed(1)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-400">Type</p>
-                  <p className="text-sm font-semibold">{homeFacility.type}</p>
+                  <p className="text-xs text-gray-400">Wind</p>
+                  <p className="text-sm font-semibold">{homeFacility?.weather.wind_speed.toFixed(1)} m/s</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400">Description</p>
+                  <p className="text-sm font-semibold">{homeFacility?.weather.weather[0].description}</p>
                 </div>
               </div>
               <button 
@@ -320,16 +447,8 @@ export default function Dashboard() {
               <FaThermometerHalf className="text-red-500 text-3xl mr-3" />
               <div>
                 <h2 className="text-lg mb-1 text-green-500">Average Temperature</h2>
-                <p className="text-2xl font-bold">{stats.avgTemp.toFixed(1)}°F</p>
-                <p className="text-sm text-yellow-400">{stats.highTempWarehouses} warehouses above 90°F</p>
-              </div>
-            </div>
-            <div className="bg-gray-900 p-3 rounded-lg border border-green-400 flex items-center">
-              <FaWind className="text-blue-500 text-3xl mr-3" />
-              <div>
-                <h2 className="text-lg mb-1 text-green-500">Average AQI</h2>
-                <p className="text-2xl font-bold">{stats.avgAQI.toFixed(1)}</p>
-                <p className="text-sm text-yellow-400">{stats.highAQIWarehouses} warehouses above 100 AQI</p>
+                <p className="text-2xl font-bold">{(stats.avgTemp - 273.15).toFixed(1)}°C</p>
+                <p className="text-sm text-yellow-400">{stats.highTempWarehouses} warehouses above 30°C</p>
               </div>
             </div>
             <div className="bg-gray-900 p-3 rounded-lg border border-green-400 flex items-center">
@@ -354,21 +473,20 @@ export default function Dashboard() {
                   </div>
                   {expandedAlerts.includes(alert.type) && (
                     <div className="mt-1 ml-4 text-xs">
-                      {initialWarehouses
+                      {warehouses
                         .filter(w => {
-                          if (alert.type === 'High Temperature') return w.temp > alert.threshold;
-                          if (alert.type === 'Poor Air Quality') return w.aqi > alert.threshold;
-                          if (alert.type === 'High UV Index') return w.uvIndex > alert.threshold;
+                          if (alert.type === 'High Temperature') return w.weather.temp > alert.threshold;
+                          if (alert.type === 'High UV Index') return w.weather.uvi > alert.threshold;
                           return false;
                         })
                         .map(w => (
                           <p key={w.name}>{w.name}: {
-                            alert.type === 'High Temperature' ? w.temp :
-                            alert.type === 'Poor Air Quality' ? w.aqi :
-                            w.uvIndex
+                            alert.type === 'High Temperature' ? 
+                              (w.weather.temp - 273.15).toFixed(1) :
+                            w.weather.uvi.toFixed(1)
                           } {alert.unit}</p>
                         ))
-                      }
+                        }
                     </div>
                   )}
                 </div>
@@ -400,16 +518,36 @@ export default function Dashboard() {
       {selectedState && selectedState.properties && (
         <StateDetailCard
           stateName={selectedState.properties?.name ?? 'Unknown'}
-          warehouses={initialWarehouses.filter(w => w.state === selectedState.properties?.name)}
+          warehouses={warehouses.filter(w => w.state === selectedState.properties?.name).map(w => ({
+            ...w,
+            temp: w.weather.temp,
+            uvi: w.weather.uvi,
+            wind_speed: w.weather.wind_speed
+          }))}
           onClose={() => setSelectedState(null)}
           stateFeature={selectedState}
-          onWarehouseClick={setSelectedWarehouse}
+          onWarehouseClick={(warehouse) => setSelectedWarehouse({
+            ...warehouse,
+            id: warehouse.name,
+            weather: {
+              ...warehouse.weather,
+              temp: warehouse.weather.temp,
+              feels_like: warehouse.weather.feels_like,
+              humidity: warehouse.weather.humidity,
+              uvi: warehouse.weather.uvi,
+              wind_speed: warehouse.weather.wind_speed,
+              wind_deg: warehouse.weather.wind_deg,
+              description: warehouse.weather.weather[0].description,
+              weather: warehouse.weather.weather
+            }
+          })}
         />
       )}
       {selectedWarehouse && (
         <div className="warehouse-detail-card fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-gray-800 p-4 rounded-lg shadow-lg">
           <WarehouseDetailCard
             warehouse={selectedWarehouse}
+            forecast={selectedWarehouse.weather.forecast}
             onClose={() => {
               console.log('Closing WarehouseDetailCard');
               setSelectedWarehouse(null);
@@ -419,7 +557,7 @@ export default function Dashboard() {
       )}
       {showWarehouseList && (
         <WarehouseList
-          warehouses={warehousesWithIds}
+          warehouses={warehouses}
           onClose={() => {
             console.log('Closing WarehouseList');
             setShowWarehouseList(false);

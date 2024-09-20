@@ -7,7 +7,13 @@ import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } f
 import { useRouter } from 'next/navigation';
 
 // Your web app's Firebase configuration
-const firebaseConfig = {
+const firebaseConfig = { 
+  apiKey: "AIzaSyAJnVaYTptukqw3caGiFe9myj7JC5O0dOU",
+  authDomain: "dashboard-dd1af.firebaseapp.com",
+  projectId: "dashboard-dd1af",
+  storageBucket: "dashboard-dd1af.appspot.com",
+  messagingSenderId: "601191475221",
+  appId: "1:601191475221:web:498f10c332f6e499cc861c"
   // Add your Firebase config here
 };
 
@@ -32,7 +38,7 @@ export default function Login() {
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
-      // Redirect to dashboard
+      // Redirect to dashboard after successful login or signup
       router.push('/dashboard');
     } catch (error) {
       setError('Failed to authenticate. Please check your credentials.');
