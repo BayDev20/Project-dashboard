@@ -33,11 +33,14 @@ export default function Login() {
     setError('');
 
     try {
+      let userCredential;
       if (isSignUp) {
-        await createUserWithEmailAndPassword(auth, email, password);
+        userCredential = await createUserWithEmailAndPassword(auth, email, password);
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        userCredential = await signInWithEmailAndPassword(auth, email, password);
       }
+      // Store user email in localStorage
+      localStorage.setItem('userEmail', userCredential.user.email || '');
       // Redirect to dashboard after successful login or signup
       router.push('/dashboard');
     } catch (error) {
