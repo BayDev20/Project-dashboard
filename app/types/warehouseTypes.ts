@@ -22,24 +22,16 @@ export interface Warehouse {
       icon: string;
     }[];
     forecast: {
-      hourly: {
-        dt: number;
-        temp: number;
-        weather: {
-          description: string;
-        }[];
-      }[];
-      daily: {
-        dt: number;
-        temp: {
-          day: number;
-          min: number;
-          max: number;
-        };
-        weather: {
-          description: string;
-        }[];
-      }[];
+      hourly: Array<{ 
+        dt: number; 
+        temp: number; 
+        weather: Array<{ id: number; main: string; description: string; icon: string }> 
+      }>;
+      daily: Array<{ 
+        dt: number; 
+        temp: { day: number; min: number; max: number }; 
+        weather: Array<{ id: number; main: string; description: string; icon: string }> 
+      }>;
     };
   };
   alerts?: {

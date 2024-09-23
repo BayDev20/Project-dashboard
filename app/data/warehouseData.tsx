@@ -1,7 +1,8 @@
 import { Warehouse as WarehouseType, WeatherData } from '../types/warehouseTypes';
 import { getWeatherData } from '../../lib/api';
 
-const defaultWeather = {
+// Define defaultWeather based on the API response structure
+const defaultWeather: WarehouseType['weather'] = {
   temp: 0,
   feels_like: 0,
   humidity: 0,
@@ -16,6 +17,7 @@ const defaultWeather = {
   }
 };
 
+// In the initialWarehouses array, use defaultWeather
 export const initialWarehouses: WarehouseType[] = [
   {
     id: "AL-BHM1",
@@ -680,48 +682,42 @@ export const initialWarehouses: WarehouseType[] = [
   },
 ];
 export async function fetchRealTimeData(): Promise<WarehouseType[]> {
+  console.log('Starting fetchRealTimeData');
   const updatedWarehouses: WarehouseType[] = [];
 
   for (const warehouse of initialWarehouses) {
     try {
+      console.log(`Fetching data for ${warehouse.name}`);
       const data = await getWeatherData(warehouse.latitude!, warehouse.longitude!) as WeatherData;
-      const weatherData = data.current;
-
+      console.log(`Received data for ${warehouse.name}:`, data);
       updatedWarehouses.push({
         ...warehouse,
         weather: {
-          temp: Math.round(weatherData.temp),
-          feels_like: Math.round(weatherData.feels_like),
-          uvi: Math.round(weatherData.uvi),
-          humidity: weatherData.humidity,
-          wind_speed: Math.round(weatherData.wind_speed),
-          wind_deg: Math.round(weatherData.wind_deg),
-          description: weatherData.weather[0].description,
-          weather: weatherData.weather,
+          temp: data.current.temp,
+          feels_like: data.current.feels_like,
+          humidity: data.current.humidity,
+          uvi: data.current.uvi,
+          wind_speed: data.current.wind_speed,
+          wind_deg: data.current.wind_deg,
+          description: data.current.weather[0].description,
+          weather: data.current.weather,
           forecast: {
-            hourly: data.hourly.map((hour) => ({
-              dt: hour.dt,
-              temp: hour.temp,
-              weather: hour.weather
-            })),
-            daily: data.daily.map((day) => ({
-              dt: day.dt,
-              temp: {
-                day: day.temp.day,
-                min: day.temp.min,
-                max: day.temp.max
-              },
-              weather: day.weather
-            }))
+            hourly: data.hourly,
+            daily: data.daily
           }
         },
         alerts: data.alerts || []
       });
     } catch (error) {
-      console.error(`Failed to fetch data for ${warehouse.name}:`, error);
-      updatedWarehouses.push(warehouse);
+      console.error(`Error fetching data for ${warehouse.name}:`, error);
+      updatedWarehouses.push({
+        ...warehouse,
+        weather: defaultWeather,
+        alerts: []
+      });
     }
   }
 
+  console.log('Finished fetchRealTimeData, warehouses:', updatedWarehouses);
   return updatedWarehouses;
 }

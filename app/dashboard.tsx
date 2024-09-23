@@ -10,14 +10,33 @@ import MarkerCluster from '@/components/ui/MarkerCluster';
 import { Feature, Geometry, GeoJsonProperties } from 'geojson';
 import { Tooltip } from 'react-tooltip';
 import { FaGlobeAmericas, FaThermometerHalf, FaWind, FaSun, FaExclamationTriangle, FaUserCog, FaTimes, FaChevronDown, FaChevronUp, FaSignOutAlt, FaCog, FaHome, FaCloud, FaCloudRain, FaSnowflake } from 'react-icons/fa';
+import { WiThermometer, WiHumidity, WiStrongWind, WiSunrise, WiSunset } from 'react-icons/wi';
+import { FaTemperatureHigh } from 'react-icons/fa';
 import { scaleLinear } from 'd3-scale';
 import { getWeatherData } from '../lib/api';
 import { Warehouse } from '@/app/types/warehouseTypes';
+import { fetchRealTimeData } from '@/app/data/warehouseData';
+import { motion } from 'framer-motion';
 
 const geoUrl = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"
 
 const kelvinToFahrenheit = (kelvin: number) => ((kelvin - 273.15) * 9/5 + 32).toFixed(1);
 const mpsToMph = (mps: number) => (mps * 2.237).toFixed(1);
+
+const WeatherModule: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}> = ({ icon, label, value }) => (
+  <motion.div 
+    className="bg-gray-800 p-3 rounded-lg flex flex-col items-center justify-center text-center glow-cyan-box"
+    whileHover={{ scale: 1.05 }}
+  >
+    <div className="mb-2">{icon}</div>
+    <p className="font-bold text-xs mb-1">{label}</p>
+    <p className="text-lg">{value}</p>
+  </motion.div>
+);
 
 export default function Dashboard() {
   const [position, setPosition] = useState({ coordinates: [-96, 38], zoom: 1 });
@@ -43,6 +62,7 @@ export default function Dashboard() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [alertData, setAlertData] = useState<{ type: string; count: number; threshold: number; unit: string }[]>([]);
   const [userEmail, setUserEmail] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const email = localStorage.getItem('userEmail');
@@ -53,45 +73,33 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function fetchWeatherData() {
-      const weatherPromises = initialWarehouses.map(async (warehouse) => {
-        const data = await getWeatherData(warehouse.latitude, warehouse.longitude);
-        return {
-          ...warehouse,
-          id: warehouse.name,
-          weather: {
-            temp: data.current.temp,
-            feels_like: data.current.feels_like,
-            humidity: data.current.humidity,
-            uvi: data.current.uvi,
-            wind_speed: data.current.wind_speed,
-            wind_deg: data.current.wind_deg,
-            description: data.current.weather[0].description,
-            forecast: {
-              hourly: data.hourly,
-              daily: data.daily
-            },
-            weather: data.current.weather
-          },
-          alerts: data.alerts || []
-        };
-      });
-      const warehousesWithWeather = await Promise.all(weatherPromises);
+      setIsLoading(true);
+      console.log('Starting fetchWeatherData');
+      const warehousesWithWeather = await fetchRealTimeData();
+      console.log('Received warehouses:', warehousesWithWeather);
+      if (warehousesWithWeather.length === 0) {
+        console.error('No warehouses data received');
+      }
       setWarehouses(warehousesWithWeather);
       updateDashboardStats(warehousesWithWeather);
       if (warehousesWithWeather.length > 0) {
         setWeatherData(warehousesWithWeather[0]);
+      } else {
+        console.error('No weather data available');
       }
+      console.log('Finished setting data');
+      setIsLoading(false);
     }
     
     fetchWeatherData();
   }, []);
 
   function updateDashboardStats(warehouses: Warehouse[]) {
-    const highTempWarehouses = warehouses.filter(w => w.weather.temp > 303.15).length; // 30°C = 303.15K
-    const highUVIWarehouses = warehouses.filter(w => w.weather.uvi > 7).length;
+    const highTempWarehouses = warehouses.filter(w => Number(w.weather.temp) > 273.15 + 30).length; // 30°C in Kelvin
+    const highUVIWarehouses = warehouses.filter(w => Number(w.weather.uvi) > 7).length;
     
     setAlertData([
-      { type: 'High Temperature', count: highTempWarehouses, threshold: 303.15, unit: 'K' },
+      { type: 'High Temperature', count: highTempWarehouses, threshold: 86, unit: '°F' },
       { type: 'High UV Index', count: highUVIWarehouses, threshold: 7, unit: '' }
     ]);
     
@@ -203,29 +211,37 @@ export default function Dashboard() {
     return <FaSun className="text-yellow-400" />;
   };
 
+  console.log('Current warehouses state:', warehouses);
+  console.log('Current weatherData state:', weatherData);
+
   return (
-    <div className="h-screen bg-black text-green-400 p-4 font-mono relative flex flex-col">
-      <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
-      <div className="relative z-10 flex flex-col h-full">
-        <header className="flex justify-between items-center mb-4">
-          <h1 className="text-3xl font-bold text-green-500 animate-pulse">Amazon Warehouse Mission Control</h1>
-          <div className="flex items-center space-x-6">
-            <FaGlobeAmericas className="text-green-500 text-3xl animate-spin-slow" />
-            <div className="text-xl">{currentTime.toLocaleTimeString()}</div>
-            <FaSun className="text-yellow-400 text-3xl" title="Current weather" />
+    <div className="h-screen bg-gray-900 text-cyan-400 p-6 font-mono relative flex flex-col overflow-hidden">
+      <div className="absolute inset-0 bg-grid-pattern opacity-10 animate-pulse"></div>
+      <motion.div 
+        className="relative z-10 flex flex-col h-full"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <header className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold text-cyan-500 glow-cyan">Amazon Warehouse Mission Control</h1>
+          <div className="flex items-center space-x-4">
+            <FaGlobeAmericas className="text-cyan-500 text-2xl animate-spin-slow" />
+            <div className="text-sm glow-cyan">{currentTime.toLocaleTimeString()}</div>
+            <FaSun className="text-yellow-400 text-xl" title="Current weather" />
             <div className="relative">
               <button onClick={() => setShowAlerts(!showAlerts)} className="relative">
-                <FaExclamationTriangle className="text-yellow-500 text-3xl" />
+                <FaExclamationTriangle className="text-yellow-500 text-xl" />
                 {notificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-xs rounded-full h-5 w-5 flex items-center justify-center text-white">
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-xs rounded-full h-4 w-4 flex items-center justify-center text-white">
                     {notificationCount}
                   </span>
                 )}
               </button>
               {showAlerts && activeAlerts.length > 0 && (
-                <div className="absolute right-0 mt-2 w-64 bg-gray-800 border border-green-500 rounded shadow-lg z-50">
+                <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-cyan-500 rounded shadow-lg z-50 text-xs">
                   {activeAlerts.map(alert => (
-                    <div key={alert.type} className="flex justify-between items-center p-2 border-b border-green-500 last:border-b-0">
+                    <div key={alert.type} className="flex justify-between items-center p-1 border-b border-cyan-500 last:border-b-0">
                       <span>{alert.type}: {alert.count}</span>
                       <button onClick={() => closeAlert(alert.type)} className="text-red-500">
                         <FaTimes />
@@ -236,23 +252,23 @@ export default function Dashboard() {
               )}
             </div>
             <div className="flex items-center space-x-2 relative">
-              <span className="text-green-500">{userEmail}</span>
+              <span className="text-cyan-500 text-xs">{userEmail}</span>
               <button onClick={() => setShowUserMenu(!showUserMenu)}>
-                <FaUserCog className="text-green-500 text-3xl" title="User settings" />
+                <FaUserCog className="text-cyan-500 text-xl" title="User settings" />
               </button>
               {showUserMenu && (
-                <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-green-500 rounded shadow-lg z-50 top-full">
+                <div className="absolute right-0 mt-2 w-40 bg-gray-800 border border-cyan-500 rounded shadow-lg z-50 top-full text-xs">
                   <button 
                     onClick={openSettings}
-                    className="block w-full text-left px-4 py-2 hover:bg-gray-700 flex items-center"
+                    className="block w-full text-left px-2 py-1 hover:bg-gray-700 flex items-center"
                   >
-                    <FaCog className="mr-2" /> Settings
+                    <FaCog className="mr-1" /> Settings
                   </button>
                   <button 
                     onClick={handleLogout}
-                    className="block w-full text-left px-4 py-2 hover:bg-gray-700 flex items-center"
+                    className="block w-full text-left px-2 py-1 hover:bg-gray-700 flex items-center"
                   >
-                    <FaSignOutAlt className="mr-2" /> Logout
+                    <FaSignOutAlt className="mr-1" /> Logout
                   </button>
                 </div>
               )}
@@ -260,244 +276,164 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <input
-          type="text"
-          placeholder="Search warehouses..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="mb-4 p-2 w-full bg-gray-800 text-green-400 border border-green-500 rounded"
-        />
+        <div className="h-1 bg-cyan-500 w-full mb-6 glow-cyan"></div>
 
-        <div className="flex gap-4 flex-grow">
-          <div className="w-2/3 border-2 border-green-400 rounded-lg overflow-hidden relative">
-            <div className="absolute top-0 left-0 w-full h-2 bg-green-400 opacity-50 animate-scan"></div>
-            <ComposableMap 
-              projection="geoAlbersUsa" 
-              projectionConfig={{ scale: 1000 }}
-              className="bg-black"
-            >
-              <ZoomableGroup 
-                zoom={position.zoom} 
-                center={position.coordinates as [number, number]} 
-                onMoveEnd={(position) => {
-                  setPosition(position);
-                  setZoomLevel(position.zoom);
-                }}
+        <div className="flex gap-6 flex-grow">
+          <motion.div 
+            className="w-3/4 flex flex-col"
+            initial={{ x: -50, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="flex-grow border-2 border-cyan-400 rounded-lg overflow-hidden relative">
+              <div className="absolute top-0 left-0 w-full h-1 bg-cyan-400 opacity-50 animate-scan"></div>
+              <ComposableMap 
+                projection="geoAlbersUsa" 
+                projectionConfig={{ scale: 1000 }}
+                className="bg-black h-full"
               >
-                <Geographies geography={geoUrl}>
-                  {({ geographies }) =>
-                    geographies.map(geo => (
-                      <Geography
-                        key={geo.rsmKey}
-                        geography={geo}
-                        fill={hoveredState === geo.id ? "#00ff00" : "#1e1e1e"}
-                        stroke="#2a2a2a"
-                        onClick={() => handleStateClick(geo)}
-                        onMouseEnter={() => {
-                          setTooltipContent(geo.properties.name);
-                          setHoveredState(geo.id as string);
-                        }}
-                        onMouseLeave={() => {
-                          setTooltipContent("");
-                          setHoveredState(null);
-                        }}
-                        style={{
-                          default: { outline: "none" },
-                          hover: { outline: "none" },
-                          pressed: { outline: "none" },
-                        }}
-                      />
-                    ))
-                  }
-                </Geographies>
-                <MarkerCluster
-                  points={warehouses.map(warehouse => ({
-                    ...warehouse,
-                    temp: warehouse.weather.temp,
-                    uvIndex: warehouse.weather.uvi
-                  }))}
-                  onClick={(data, event) => {
-                    console.log('Pin clicked:', data);
-                    if ('id' in data && 'name' in data && 'state' in data && 'location' in data && 'weather' in data) {
-                      const warehouseData: Warehouse = {
-                        ...data as Warehouse,
-                        type: 'Warehouse',
-                        address: data.location,
-                      };
-                      handleWarehouseClick(warehouseData, event);
-                    } else {
-                      console.log('Clicked on a cluster');
-                    }
+                <ZoomableGroup 
+                  zoom={position.zoom} 
+                  center={position.coordinates as [number, number]} 
+                  onMoveEnd={(position) => {
+                    setPosition(position);
+                    setZoomLevel(position.zoom);
                   }}
-                  onMouseEnter={(data) => setTooltipContent('name' in data ? data.name : `Cluster of ${data.pointCount} warehouses`)}
-                  onMouseLeave={() => setTooltipContent("")}
-                  showHeatMap={showHeatMap}
-                  colorScale={colorScale}
-                />
-              </ZoomableGroup>
-            </ComposableMap>
-            <Tooltip id="tooltip" content={tooltipContent} />
-          </div>
-          <div className="w-1/3 space-y-4 overflow-auto">
-            {weatherData && (
-              <>
-                <div className="bg-gray-900 p-4 rounded-lg border border-green-400">
-                  <h2 className="text-2xl font-bold mb-3 text-green-500">Current Weather</h2>
-                  <p>Temperature: {kelvinToFahrenheit(weatherData.weather.temp)}°F</p>
-                  <p>Feels Like: {kelvinToFahrenheit(weatherData.weather.feels_like)}°F</p>
-                  <p>Humidity: {weatherData.weather.humidity}%</p>
-                  <p>UV Index: {weatherData.weather.uvi}</p>
-                  <p>Wind Speed: {mpsToMph(weatherData.weather.wind_speed)} mph</p>
-                  <p>Wind Direction: {weatherData.weather.wind_deg}°</p>
-                  <p>Description: {weatherData.weather.weather[0].description}</p>
-                </div>
-                <div className="bg-gray-900 p-4 rounded-lg border border-green-400">
-                  <h2 className="text-2xl font-bold mb-3 text-green-500">5-Day Forecast</h2>
-                  <div className="flex justify-between">
-                    {weatherData.weather.forecast.daily.slice(0, 5).map((day: {
-                      dt: number;
-                      temp: { max: number; min: number };
-                      weather: { description: string }[];
-                    }, index: number) => (
-                      <div key={index} className="text-center">
-                        <p>{new Date(day.dt * 1000).toLocaleDateString('en-US', { weekday: 'short' })}</p>
-                        {getWeatherIcon(day.weather[0].description)}
-                        <p>{kelvinToFahrenheit(day.temp.max)}°F</p>
-                        <p>{kelvinToFahrenheit(day.temp.min)}°F</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                {weatherData.alerts && weatherData.alerts.length > 0 && (
-                  <div className="bg-gray-900 p-4 rounded-lg border border-red-400">
-                    <h2 className="text-2xl font-bold mb-3">Weather Alerts</h2>
-                    {weatherData.alerts.map((alert: any, index: number) => (
-                      <div key={index} className="mb-2">
-                        <p>Event: {alert.event}</p>
-                        <p>Start: {new Date(alert.start * 1000).toLocaleString()}</p>
-                        <p>End: {new Date(alert.end * 1000).toLocaleString()}</p>
-                        <p>Description: {alert.description}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-            <div className="bg-gray-900 p-4 rounded-lg border border-green-400">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center">
-                  <FaHome className="text-green-500 text-2xl mr-2" />
-                  <h2 className="text-lg text-green-500">Home Facility</h2>
-                </div>
-                <div className="relative">
-                  <button 
-                    onClick={() => setIsHomeFacilityDropdownOpen(!isHomeFacilityDropdownOpen)}
-                    className="flex items-center bg-green-500 text-black px-2 py-1 rounded text-sm hover:bg-green-400 transition-colors"
-                  >
-                    Select <FaChevronDown className="ml-1" />
-                  </button>
-                  {isHomeFacilityDropdownOpen && (
-                    <div className="absolute right-0 mt-1 w-48 bg-gray-800 border border-green-500 rounded shadow-lg z-10 max-h-60 overflow-y-auto">
-                      {warehouses.map((warehouse) => (
-                        <button
-                          key={warehouse.name}
-                          onClick={() => {
-                            setHomeFacility(warehouse);
-                            setIsHomeFacilityDropdownOpen(false);
+                >
+                  <Geographies geography={geoUrl}>
+                    {({ geographies }) =>
+                      geographies.map(geo => (
+                        <Geography
+                          key={geo.rsmKey}
+                          geography={geo}
+                          fill={hoveredState === geo.id ? "#00ff00" : "#1e1e1e"}
+                          stroke="#2a2a2a"
+                          onClick={() => handleStateClick(geo)}
+                          onMouseEnter={() => {
+                            setTooltipContent(geo.properties.name);
+                            setHoveredState(geo.id as string);
                           }}
-                          className="block w-full text-left px-4 py-2 hover:bg-gray-700 text-green-400"
-                        >
-                          {warehouse.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <p className="text-xl font-bold">{homeFacility?.name}</p>
-              <p className="text-sm">{homeFacility?.location}</p>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <div>
-                  <p className="text-xs text-gray-400">Temperature</p>
-                  <p className="text-sm font-semibold">
-                    {kelvinToFahrenheit(homeFacility?.weather?.temp ?? 273.15)}°F
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">UV Index</p>
-                  <p className="text-sm font-semibold">{homeFacility?.weather.uvi.toFixed(1)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">Wind</p>
-                  <p className="text-sm font-semibold">{mpsToMph(homeFacility?.weather.wind_speed ?? 0)} mph</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">Description</p>
-                  <p className="text-sm font-semibold">{homeFacility?.weather.weather[0].description}</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setSelectedWarehouse(homeFacility)}
-                className="mt-2 w-full bg-green-500 text-black px-2 py-1 rounded text-sm hover:bg-green-400 transition-colors"
+                          onMouseLeave={() => {
+                            setTooltipContent("");
+                            setHoveredState(null);
+                          }}
+                          style={{
+                            default: { outline: "none" },
+                            hover: { outline: "none" },
+                            pressed: { outline: "none" },
+                          }}
+                        />
+                      ))
+                    }
+                  </Geographies>
+                  <MarkerCluster
+                    points={warehouses.map(warehouse => ({
+                      ...warehouse,
+                      temp: warehouse.weather.temp,
+                      uvIndex: warehouse.weather.uvi
+                    }))}
+                    onClick={(data, event) => {
+                      console.log('Pin clicked:', data);
+                      if ('id' in data && 'name' in data && 'state' in data && 'location' in data && 'weather' in data) {
+                        const warehouseData: Warehouse = {
+                          ...data as Warehouse,
+                          type: 'Warehouse',
+                          address: data.location,
+                        };
+                        handleWarehouseClick(warehouseData, event);
+                      } else {
+                        console.log('Clicked on a cluster');
+                      }
+                    }}
+                    onMouseEnter={(data) => setTooltipContent('name' in data ? data.name : `Cluster of ${data.pointCount} warehouses`)}
+                    onMouseLeave={() => setTooltipContent("")}
+                    showHeatMap={showHeatMap}
+                    colorScale={colorScale}
+                  />
+                </ZoomableGroup>
+              </ComposableMap>
+              <Tooltip id="tooltip" content={tooltipContent} />
+            </div>
+            <div className="mt-4 flex gap-2">
+              <input
+                type="text"
+                placeholder="Search warehouses..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="flex-grow p-2 bg-gray-800 text-cyan-400 border border-cyan-500 rounded glow-cyan-input"
+              />
+              <motion.button 
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowWarehouseList(true)}
+                className="bg-cyan-500 text-black px-4 py-2 rounded hover:bg-cyan-400 transition-colors"
               >
-                View Details
-              </button>
+                Show All Warehouses
+              </motion.button>
+              <motion.button 
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowHeatMap(!showHeatMap)}
+                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-400 transition-colors"
+              >
+                {showHeatMap ? "Hide" : "Show"} Heat Map
+              </motion.button>
             </div>
-            <div className="bg-gray-900 p-4 rounded-lg border border-green-400">
-              <div className="flex items-center cursor-pointer" onClick={() => setExpandedAlerts(prev => prev.length ? [] : alertData.map(a => a.type))}>
-                <FaExclamationTriangle className="text-yellow-500 text-3xl mr-3" />
-                <h2 className="text-lg mb-1 text-green-500">Alerts</h2>
-                {expandedAlerts.length ? <FaChevronUp className="ml-auto" /> : <FaChevronDown className="ml-auto" />}
-              </div>
-              {alertData.map(alert => (
-                <div key={alert.type} className="mt-2">
-                  <div className="flex items-center cursor-pointer" onClick={() => toggleAlert(alert.type)}>
-                    <p className="text-sm">{alert.type}: {alert.count}</p>
-                    {expandedAlerts.includes(alert.type) ? <FaChevronUp className="ml-auto" /> : <FaChevronDown className="ml-auto" />}
-                  </div>
-                  {expandedAlerts.includes(alert.type) && (
-                    <div className="mt-1 ml-4 text-xs">
-                      {warehouses
-                        .filter(w => {
-                          if (alert.type === 'High Temperature') return w.weather.temp > alert.threshold;
-                          if (alert.type === 'High UV Index') return w.weather.uvi > alert.threshold;
-                          return false;
-                        })
-                        .map(w => (
-                          <p key={w.name}>{w.name}: {
-                            alert.type === 'High Temperature' ? 
-                              kelvinToFahrenheit(w.weather.temp) :
-                            w.weather.uvi.toFixed(1)
-                          } {alert.unit}</p>
-                        ))
-                        }
-                    </div>
-                  )}
+          </motion.div>
+          <motion.div 
+            className="w-1/4 flex flex-col space-y-4"
+            initial={{ x: 50, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            {weatherData && (
+              <div className="bg-gray-800 p-4 rounded-lg border border-cyan-400 flex-grow flex flex-col glow-cyan-box">
+                <h2 className="text-xl font-bold mb-4 text-cyan-500 flex items-center justify-center">
+                  <FaSun className="mr-2 text-yellow-400" /> Current Weather
+                </h2>
+                <div className="grid grid-cols-2 gap-4 flex-grow">
+                  <WeatherModule
+                    icon={<WiThermometer className="text-5xl text-red-500" />}
+                    label="Temperature"
+                    value={`${kelvinToFahrenheit(weatherData.weather.temp)}°F`}
+                  />
+                  <WeatherModule
+                    icon={<FaTemperatureHigh className="text-5xl text-orange-500" />}
+                    label="Feels Like"
+                    value={`${kelvinToFahrenheit(weatherData.weather.feels_like)}°F`}
+                  />
+                  <WeatherModule
+                    icon={<WiHumidity className="text-5xl text-blue-500" />}
+                    label="Humidity"
+                    value={`${weatherData.weather.humidity}%`}
+                  />
+                  <WeatherModule
+                    icon={<FaSun className="text-5xl text-yellow-500" />}
+                    label="UV Index"
+                    value={weatherData.weather.uvi.toString()}
+                  />
+                  <WeatherModule
+                    icon={<WiStrongWind className="text-5xl text-teal-500" />}
+                    label="Wind"
+                    value={`${mpsToMph(weatherData.weather.wind_speed)} mph`}
+                  />
+                  <WeatherModule
+                    icon={getWeatherIcon(weatherData.weather.weather[0].description)}
+                    label="Description"
+                    value={weatherData.weather.weather[0].description}
+                  />
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
+          </motion.div>
+        </div>
+
+        <footer className="flex justify-between items-center mt-4">
+          <div className="text-cyan-400 text-xs glow-cyan">
+            Zoom Level: {zoomLevel.toFixed(2)}
           </div>
-        </div>
-
-        <footer className="mt-4 flex space-x-4">
-          <button 
-            onClick={() => setShowWarehouseList(true)}
-            className="bg-green-500 text-black px-4 py-2 rounded hover:bg-green-400 transition-colors"
-          >
-            Show All Warehouses
-          </button>
-          <button 
-            onClick={() => setShowHeatMap(!showHeatMap)}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-400 transition-colors"
-          >
-            {showHeatMap ? "Hide" : "Show"} Temperature Heat Map
-          </button>
         </footer>
-
-        <div className="mt-2 text-green-400 text-sm">
-          Zoom Level: {zoomLevel.toFixed(2)}
-        </div>
-      </div>
+      </motion.div>
       {selectedState && selectedState.properties && (
         <StateDetailCard
           stateName={selectedState.properties?.name ?? 'Unknown'}
@@ -546,6 +482,11 @@ export default function Dashboard() {
             setShowWarehouseList(false);
           }}
         />
+      )}
+      {isLoading && (
+        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-gray-800 p-4 rounded-lg shadow-lg">
+          <p className="text-cyan-400">Loading data...</p>
+        </div>
       )}
     </div>
   );
