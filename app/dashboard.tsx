@@ -2,18 +2,16 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
-import { initialWarehouses } from '@/app/data/warehouseData';
 import { StateDetailCard } from '@/components/ui/StateDetailCard';
 import { WarehouseDetailCard } from '@/components/ui/WarehouseDetailCard';
 import { WarehouseList } from '@/components/ui/WarehouseList';
 import MarkerCluster from '@/components/ui/MarkerCluster';
 import { Feature, Geometry, GeoJsonProperties } from 'geojson';
 import { Tooltip } from 'react-tooltip';
-import { FaGlobeAmericas, FaThermometerHalf, FaWind, FaSun, FaExclamationTriangle, FaUserCog, FaTimes, FaChevronDown, FaChevronUp, FaSignOutAlt, FaCog, FaHome, FaCloud, FaCloudRain, FaSnowflake } from 'react-icons/fa';
-import { WiThermometer, WiHumidity, WiStrongWind, WiSunrise, WiSunset } from 'react-icons/wi';
+import { FaGlobeAmericas, FaSun, FaExclamationTriangle, FaUserCog, FaTimes, FaSignOutAlt, FaCog, FaCloud, FaCloudRain, FaSnowflake } from 'react-icons/fa';
+import { WiThermometer, WiHumidity, WiStrongWind } from 'react-icons/wi';
 import { FaTemperatureHigh } from 'react-icons/fa';
 import { scaleLinear } from 'd3-scale';
-import { getWeatherData } from '../lib/api';
 import { Warehouse } from '@/app/types/warehouseTypes';
 import { fetchRealTimeData } from '@/app/data/warehouseData';
 import { motion } from 'framer-motion';
@@ -49,15 +47,10 @@ export default function Dashboard() {
   const [showHeatMap, setShowHeatMap] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filteredWarehouses, setFilteredWarehouses] = useState<Warehouse[]>([]);
   const [notificationCount, setNotificationCount] = useState(0);
-  const [expandedAlerts, setExpandedAlerts] = useState<string[]>([]);
   const [showAlerts, setShowAlerts] = useState(false);
   const [activeAlerts, setActiveAlerts] = useState<{type: string; count: number}[]>([]);
-  const [userName, setUserName] = useState("John Doe");
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [homeFacility, setHomeFacility] = useState<Warehouse | null>(null);
-  const [isHomeFacilityDropdownOpen, setIsHomeFacilityDropdownOpen] = useState(false);
   const [weatherData, setWeatherData] = useState<any>(null);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [alertData, setAlertData] = useState<{ type: string; count: number; threshold: number; unit: string }[]>([]);
@@ -102,10 +95,6 @@ export default function Dashboard() {
       { type: 'High Temperature', count: highTempWarehouses, threshold: 86, unit: '°F' },
       { type: 'High UV Index', count: highUVIWarehouses, threshold: 7, unit: '' }
     ]);
-    
-    if (warehouses.length > 0) {
-      setHomeFacility(warehouses[0]);
-    }
   }
 
   const handleWarehouseClick = useCallback((data: Warehouse | { pointCount: number; address: string }, event: React.MouseEvent) => {
@@ -146,7 +135,7 @@ export default function Dashboard() {
       w.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       w.state.toLowerCase().includes(searchTerm.toLowerCase())
     );
-    setFilteredWarehouses(filtered);
+    // setFilteredWarehouses(filtered);
   }, [searchTerm, warehouses]);
 
   useEffect(() => {
@@ -174,11 +163,11 @@ export default function Dashboard() {
   );
 
   const toggleAlert = useCallback((alertType: string) => {
-    setExpandedAlerts(prev => 
-      prev.includes(alertType) 
-        ? prev.filter(a => a !== alertType)
-        : [...prev, alertType]
-    );
+    // setExpandedAlerts(prev => 
+    //   prev.includes(alertType) 
+    //     ? prev.filter(a => a !== alertType)
+    //     : [...prev, alertType]
+    // );
   }, []);
 
   const closeAlert = useCallback((type: string) => {
