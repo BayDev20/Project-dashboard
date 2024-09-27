@@ -5,7 +5,6 @@ import { getWeatherData } from '../../lib/api';
 const defaultWeather: WarehouseType['weather'] = {
   temp: 0,
   feels_like: 0,
-  humidity: 0,
   uvi: 0,
   wind_speed: 0,
   wind_deg: 0,
@@ -695,14 +694,16 @@ export async function fetchRealTimeData(): Promise<WarehouseType[]> {
         weather: {
           temp: data.current.temp,
           feels_like: data.current.feels_like,
-          humidity: data.current.humidity,
           uvi: data.current.uvi,
           wind_speed: data.current.wind_speed,
           wind_deg: data.current.wind_deg,
           description: data.current.weather[0].description,
           weather: data.current.weather,
           forecast: {
-            hourly: data.hourly,
+            hourly: data.hourly.map(hour => ({
+              ...hour,
+              feels_like: hour.temp // or use a default value if feels_like is not available
+            })),
             daily: data.daily
           }
         },

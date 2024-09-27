@@ -2,24 +2,11 @@
 
 import React, { useState } from 'react';
 import { FaUser, FaLock, FaAmazon } from 'react-icons/fa';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import { auth } from './firebaseConfig'; // Import auth from the shared config
 
-// Your web app's Firebase configuration
-const firebaseConfig = { 
-  apiKey: "AIzaSyAJnVaYTptukqw3caGiFe9myj7JC5O0dOU",
-  authDomain: "dashboard-dd1af.firebaseapp.com",
-  projectId: "dashboard-dd1af",
-  storageBucket: "dashboard-dd1af.appspot.com",
-  messagingSenderId: "601191475221",
-  appId: "1:601191475221:web:498f10c332f6e499cc861c"
-  // Add your Firebase config here
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+// Remove the firebaseConfig and app initialization from here
 
 export default function Login() {
   const router = useRouter();

@@ -1,43 +1,68 @@
-import React, { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import React, { useState, useMemo } from 'react';
 import { Warehouse } from '@/app/types/warehouseTypes';
-import { WarehouseDetailCard } from './WarehouseDetailCard';
+import { StateDetailCard } from './StateDetailCard';
+import { Feature, Geometry, GeoJsonProperties } from 'geojson';
 
 interface WarehouseListProps {
   warehouses: Warehouse[];
   onClose: () => void;
 }
 
-export function WarehouseList({ warehouses, onClose }: WarehouseListProps) {
-  const [selectedWarehouse, setSelectedWarehouse] = useState<Warehouse | null>(null);
+export const WarehouseList: React.FC<WarehouseListProps> = ({ warehouses, onClose }) => {
+  const [selectedState, setSelectedState] = useState<string | null>(null);
+
+  const warehousesByState = useMemo(() => {
+    return warehouses.reduce((acc, warehouse) => {
+      if (!acc[warehouse.state]) {
+        acc[warehouse.state] = [];
+      }
+      acc[warehouse.state].push(warehouse);
+      return acc;
+    }, {} as Record<string, Warehouse[]>);
+  }, [warehouses]);
+
+  const handleWarehouseClick = (stateName: string) => {
+    setSelectedState(stateName);
+  };
 
   return (
-    <Card className="fixed top-10 left-10 right-10 bottom-10 bg-gray-900 border-green-400 border-2 z-50 overflow-auto">
-      <CardHeader className="p-4 bg-gray-800 flex justify-between items-center">
-        <CardTitle className="text-2xl text-green-400">Warehouses</CardTitle>
-        <button onClick={onClose} className="text-green-400 text-xl">&times;</button>
-      </CardHeader>
-      <CardContent className="p-4 grid grid-cols-3 gap-4">
-        {warehouses.map((warehouse) => (
-          <div
-            key={warehouse.id}
-            className="p-4 bg-gray-800 rounded cursor-pointer hover:bg-gray-700"
-            onClick={() => setSelectedWarehouse(warehouse)}
-          >
-            <h3 className="text-xl text-green-400">{warehouse.name}</h3>
-            <p>Temperature: {(warehouse.weather?.temp - 273.15).toFixed(1)}°C</p>
-            <p>Humidity: {warehouse.weather?.humidity}%</p>
-            <p>UV Index: {warehouse.weather?.uvi.toFixed(1)}</p>
-          </div>
-        ))}
-      </CardContent>
-      {selectedWarehouse && (
-        <WarehouseDetailCard
-          warehouse={selectedWarehouse}
-          forecast={selectedWarehouse.weather.forecast} // Update this line
-          onClose={() => setSelectedWarehouse(null)}
+    <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
+      <div className="bg-gray-800 p-6 rounded-lg w-3/4 h-3/4 overflow-auto">
+        <h2 className="text-2xl font-bold mb-4 text-green-400">All Warehouses</h2>
+        <div className="grid grid-cols-3 gap-4">
+          {Object.entries(warehousesByState).map(([state, stateWarehouses]) => (
+            <div key={state} className="bg-gray-700 p-4 rounded-lg">
+              <h3 className="text-xl font-semibold mb-2 text-green-300">{state}</h3>
+              <ul>
+                {stateWarehouses.map((warehouse) => (
+                  <li 
+                    key={warehouse.name} 
+                    className="cursor-pointer hover:bg-gray-600 p-2 rounded"
+                    onClick={() => handleWarehouseClick(state)}
+                  >
+                    {warehouse.name}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <button 
+          onClick={onClose}
+          className="mt-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+        >
+          Close
+        </button>
+      </div>
+      {selectedState && (
+        <StateDetailCard
+          stateName={selectedState}
+          warehouses={warehousesByState[selectedState]}
+          onClose={() => setSelectedState(null)}
+          stateFeature={{} as Feature<Geometry, GeoJsonProperties>}
+          onWarehouseClick={() => {}}
         />
       )}
-    </Card>
+    </div>
   );
-}
+};

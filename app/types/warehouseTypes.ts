@@ -10,7 +10,6 @@ export interface Warehouse {
   weather: {
     temp: number;
     feels_like: number;
-    humidity: number;
     uvi: number;
     wind_speed: number;
     wind_deg: number;
@@ -24,7 +23,8 @@ export interface Warehouse {
     forecast: {
       hourly: Array<{ 
         dt: number; 
-        temp: number; 
+        temp: number;
+        feels_like: number;
         weather: Array<{ id: number; main: string; description: string; icon: string }> 
       }>;
       daily: Array<{ 
@@ -47,7 +47,8 @@ export type WeatherData = {
   current: {
     temp: number;
     feels_like: number;
-    humidity: number;
+    // Remove this line
+    // humidity: number;
     uvi: number;
     wind_speed: number;
     wind_deg: number;

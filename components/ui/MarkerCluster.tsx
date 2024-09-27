@@ -8,11 +8,10 @@ interface MarkerClusterProps {
   onClick: (data: WarehouseType | { pointCount: number, address: string }, event: React.MouseEvent) => void;
   onMouseEnter: (data: WarehouseType | { pointCount: number, address: string }) => void;
   onMouseLeave: () => void;
-  showHeatMap: boolean;
   colorScale: (temp: number) => string;
 }
 
-const MarkerCluster: React.FC<MarkerClusterProps> = ({ points, onClick, onMouseEnter, onMouseLeave, showHeatMap, colorScale }) => {
+const MarkerCluster: React.FC<MarkerClusterProps> = ({ points, onClick, onMouseEnter, onMouseLeave}) => {
   const cluster = useMemo(() => {
     const index = new supercluster({
       radius: 40,
@@ -71,7 +70,7 @@ const MarkerCluster: React.FC<MarkerClusterProps> = ({ points, onClick, onMouseE
             <Marker key={`warehouse-${warehouseId}`} coordinates={[longitude, latitude]}>
               <circle
                 r={4}
-                fill={showHeatMap ? colorScale(warehouse.weather.temp) : "#F00"}
+                fill="#fff"
                 stroke="#fff"
                 strokeWidth={2}
                 onClick={(e: React.MouseEvent) => onClick(warehouse, e)}

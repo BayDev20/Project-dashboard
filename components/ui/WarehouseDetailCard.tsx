@@ -1,43 +1,50 @@
-import React, { useMemo } from 'react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid, Legend, Area, AreaChart } from 'recharts';
-import { FaTemperatureHigh, FaWind, FaTint, FaSun, FaCloudSun, FaCloud, FaCloudRain, FaSnowflake, FaCompass, FaThermometerHalf } from 'react-icons/fa';
+import React from 'react';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Area, AreaChart } from 'recharts';
+import { FaTemperatureHigh, FaWind, FaCompass, FaThermometerHalf } from 'react-icons/fa';
 import { format, fromUnixTime } from 'date-fns';
 import { Warehouse } from '@/app/types/warehouseTypes';
 
 const kelvinToFahrenheit = (kelvin: number) => ((kelvin - 273.15) * 9/5 + 32).toFixed(1);
 const mpsToMph = (mps: number) => (mps * 2.237).toFixed(1);
 
-const getWeatherIcon = (description: string) => {
-  if (description.includes('clear')) return <FaSun className="text-yellow-400" />;
-  if (description.includes('partly cloudy')) return <FaCloudSun className="text-gray-400" />;
-  if (description.includes('cloudy')) return <FaCloud className="text-gray-400" />;
-  if (description.includes('rain')) return <FaCloudRain className="text-blue-400" />;
-  if (description.includes('snow')) return <FaSnowflake className="text-blue-200" />;
-  return <FaSun className="text-yellow-400" />;
-};
+// Remove or comment out the unused function
+// const getWeatherIcon = (description: string) => { ... };
 
-export function WarehouseDetailCard({ warehouse, forecast, onClose }: { warehouse: Warehouse; forecast: any; onClose: () => void }) {
+interface ForecastData {
+  daily: Array<{
+    dt: number;
+    temp: { day: number; min: number; max: number };
+    weather: Array<{ description: string }>;
+  }>;
+  hourly: Array<{
+    dt: number;
+    temp: number;
+    feels_like: number;
+    weather: Array<{ description: string }>;
+  }>;
+}
+
+export function WarehouseDetailCard({ warehouse, forecast, onClose }: { warehouse: Warehouse; forecast: ForecastData; onClose: () => void }) {
   const formatDate = (unixTime: number) => format(fromUnixTime(unixTime), 'MMM d');
   const formatHour = (unixTime: number) => format(fromUnixTime(unixTime), 'HH:mm');
 
-  const dailyForecastData = forecast.daily.map((day: any) => ({
+  const dailyForecastData = forecast.daily.map((day) => ({
     date: day.dt,
     temp: parseFloat(kelvinToFahrenheit(day.temp.day)),
     min: parseFloat(kelvinToFahrenheit(day.temp.min)),
     max: parseFloat(kelvinToFahrenheit(day.temp.max)),
-    humidity: day.humidity,
     description: day.weather[0].description
   }));
 
-  const hourlyForecastData = forecast.hourly.slice(0, 24).map((hour: any) => ({
+  const hourlyForecastData = forecast.hourly.slice(0, 24).map((hour) => ({
     time: hour.dt,
     temp: parseFloat(kelvinToFahrenheit(hour.temp)),
     feelsLike: parseFloat(kelvinToFahrenheit(hour.feels_like)),
-    humidity: hour.humidity,
     description: hour.weather[0].description
   }));
 
-  const temperature = warehouse.weather?.temp ? `${kelvinToFahrenheit(warehouse.weather.temp)}°F` : 'N/A';
+  // Remove the unused 'temperature' variable
+  // const temperature = warehouse.weather?.temp ? `${kelvinToFahrenheit(warehouse.weather.temp)}°F` : 'N/A';
 
   return (
     <div className="warehouse-detail-card bg-gray-900 p-6 rounded-lg shadow-lg w-screen h-screen flex flex-col text-green-400 overflow-hidden">
@@ -60,7 +67,6 @@ export function WarehouseDetailCard({ warehouse, forecast, onClose }: { warehous
           { icon: <FaThermometerHalf className="text-3xl mb-2 text-orange-400" />, label: "Feels Like", value: `${kelvinToFahrenheit(warehouse.weather.feels_like)}°F` },
           { icon: <FaWind className="text-3xl mb-2 text-blue-400" />, label: "Wind", value: `${mpsToMph(warehouse.weather.wind_speed)} mph` },
           { icon: <FaCompass className="text-3xl mb-2 text-indigo-400" />, label: "Wind Direction", value: `${warehouse.weather.wind_deg}°` },
-          { icon: <FaTint className="text-3xl mb-2 text-cyan-400" />, label: "Humidity", value: `${warehouse.weather.humidity}%` },
         ].map((item, index) => (
           <div key={index} className="flex flex-col items-center">
             {item.icon}

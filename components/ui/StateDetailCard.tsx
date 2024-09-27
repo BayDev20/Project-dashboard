@@ -1,9 +1,10 @@
-import React, { useRef, useCallback, useState, useMemo, useEffect } from 'react';
+import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { Loader } from '@googlemaps/js-api-loader';
 import { Warehouse } from '../../app/types/warehouseTypes';
 import { Feature, Geometry, GeoJsonProperties } from 'geojson';
-import { FaThermometerHalf, FaWind, FaTint, FaInfoCircle, FaBoxes } from 'react-icons/fa';
+import { FaThermometerHalf, FaWind, FaClock, FaInfoCircle, FaBoxes } from 'react-icons/fa';
 import { WiDaySunny, WiCloudy, WiRain, WiSnow, WiThunderstorm, WiFog } from 'react-icons/wi';
+import { format } from 'date-fns';
 
 // Use the environment variable
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
@@ -17,7 +18,7 @@ interface StateDetailCardProps {
 }
 
 // Update these utility functions to handle potential undefined values
-const kelvinToCelsius = (kelvin: number | undefined) => kelvin ? (kelvin - 273.15).toFixed(1) : 'N/A';
+// maybe use > const kelvinToCelsius = (kelvin: number | undefined) => kelvin ? (kelvin - 273.15).toFixed(1) : 'N/A';
 const kelvinToFahrenheit = (kelvin: number | undefined) => 
   kelvin ? Math.round((kelvin - 273.15) * 9/5 + 32) : 'N/A';
 const metersPerSecondToMph = (mps: number | undefined) => mps ? (mps * 2.237).toFixed(1) : 'N/A';
@@ -34,6 +35,12 @@ export const StateDetailCard = React.memo(function StateDetailCard({
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMap = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleWarehouseSelect = useCallback((warehouse: Warehouse, index: number) => {
     setSelectedIndex(index);
@@ -117,7 +124,7 @@ export const StateDetailCard = React.memo(function StateDetailCard({
 
       // Add state boundary if GeoJSON is available
       if (stateFeature && googleMap.current) {
-        googleMap.current.data.addGeoJson(stateFeature as any);
+        googleMap.current.data.addGeoJson(stateFeature);
         googleMap.current.data.setStyle({
           fillColor: 'transparent',
           strokeColor: '#3a3a3a',
@@ -127,7 +134,7 @@ export const StateDetailCard = React.memo(function StateDetailCard({
       
       // Removed heatmap creation code
     });
-  }, [warehouses, stateFeature, GOOGLE_MAPS_API_KEY, handleWarehouseSelect]);
+  }, [warehouses, stateFeature, handleWarehouseSelect]);
 
   useEffect(() => {
     if (mapRef.current && !googleMap.current) {
@@ -149,19 +156,6 @@ export const StateDetailCard = React.memo(function StateDetailCard({
       });
     }
   }, [selectedIndex]);
-
-  // Memoize the list of warehouses
-  const memoizedWarehouseList = useMemo(() => (
-    warehouses.map((warehouse, index) => (
-      <li 
-        key={warehouse.name} 
-        className={`cursor-pointer hover:bg-gray-700 p-2 rounded transition duration-300 ${index === selectedIndex ? 'bg-green-800' : ''}`}
-        onClick={() => handleWarehouseSelect(warehouse, index)}
-      >
-        {warehouse.name}
-      </li>
-    ))
-  ), [warehouses, selectedIndex, handleWarehouseSelect]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -217,13 +211,6 @@ export const StateDetailCard = React.memo(function StateDetailCard({
       </div>
     );
   });
-
-  const transformForecast = (forecast: any) => {
-    return forecast.daily.map((day: any) => ({
-      temp: kelvinToFahrenheit(day.temp.day),
-      weather: [{ id: day.weather[0].id, description: day.weather[0].description }]
-    }));
-  };
 
   return (
     <div className="fixed inset-0 bg-gray-900 text-green-400 p-6 z-50 overflow-hidden flex flex-col">
@@ -297,10 +284,10 @@ export const StateDetailCard = React.memo(function StateDetailCard({
                   color="text-blue-400" 
                 />
                 <WeatherItem 
-                  icon={<FaTint className="text-cyan-500" />} 
-                  label="Humidity" 
-                  value={`${selectedWarehouse.weather.humidity}%`} 
-                  color="text-cyan-400" 
+                  icon={<FaClock className="text-yellow-500" />} 
+                  label="Current Time" 
+                  value={format(currentTime, 'HH:mm:ss')} 
+                  color="text-yellow-400" 
                 />
                 <WeatherItem 
                   icon={getWeatherIcon(selectedWarehouse.weather.weather[0].id)} 
