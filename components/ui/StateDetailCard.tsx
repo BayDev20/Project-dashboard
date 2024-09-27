@@ -7,7 +7,7 @@ import { WiDaySunny, WiCloudy, WiRain, WiSnow, WiThunderstorm, WiFog } from 'rea
 import { format } from 'date-fns';
 
 // Use the environment variable
-const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || '';
 
 interface StateDetailCardProps {
   stateName: string;
