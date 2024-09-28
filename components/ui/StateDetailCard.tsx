@@ -1,13 +1,12 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react';
-import { Loader } from '@googlemaps/js-api-loader';
-import { Warehouse } from '../../app/types/warehouseTypes';
-import { Feature, Geometry, GeoJsonProperties } from 'geojson';
 import { FaThermometerHalf, FaWind, FaClock, FaInfoCircle, FaBoxes } from 'react-icons/fa';
 import { WiDaySunny, WiCloudy, WiRain, WiSnow, WiThunderstorm, WiFog } from 'react-icons/wi';
 import { format } from 'date-fns';
+import { Warehouse } from '../../app/types/warehouseTypes';
+import { Feature, Geometry, GeoJsonProperties } from 'geojson';
+import { Loader } from '@googlemaps/js-api-loader';
 
-// Use the environment variable
-const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || '';
+const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
 interface StateDetailCardProps {
   stateName: string;
@@ -17,8 +16,6 @@ interface StateDetailCardProps {
   onWarehouseClick: (warehouse: Warehouse) => void;
 }
 
-// Update these utility functions to handle potential undefined values
-// maybe use > const kelvinToCelsius = (kelvin: number | undefined) => kelvin ? (kelvin - 273.15).toFixed(1) : 'N/A';
 const kelvinToFahrenheit = (kelvin: number | undefined) => 
   kelvin ? Math.round((kelvin - 273.15) * 9/5 + 32) : 'N/A';
 const metersPerSecondToMph = (mps: number | undefined) => mps ? (mps * 2.237).toFixed(1) : 'N/A';
@@ -48,30 +45,20 @@ export const StateDetailCard = React.memo(function StateDetailCard({
     
     if (googleMap.current) {
       googleMap.current.panTo({ lat: warehouse.latitude, lng: warehouse.longitude });
+      googleMap.current.setZoom(10);
     }
   }, []);
 
-  const memoizedHandleMapLoad = useCallback(() => {
-    if (!GOOGLE_MAPS_API_KEY) {
-      console.error('Google Maps API key is not set');
-      return;
-    }
+  const initializeMap = useCallback(() => {
+    if (!mapRef.current || googleMap.current) return;
 
     const loader = new Loader({
       apiKey: GOOGLE_MAPS_API_KEY,
-      version: "weekly",
+      version: 'weekly',
     });
 
     loader.load().then(() => {
-      if (!mapRef.current || googleMap.current) return;
-
-      const bounds = new google.maps.LatLngBounds();
-      warehouses.forEach((warehouse) => {
-        bounds.extend({ lat: warehouse.latitude, lng: warehouse.longitude });
-      });
-
-      googleMap.current = new google.maps.Map(mapRef.current, {
-        center: bounds.getCenter(),
+      const mapOptions: google.maps.MapOptions = {
         zoom: 6,
         mapTypeId: google.maps.MapTypeId.SATELLITE,
         styles: [
@@ -83,79 +70,62 @@ export const StateDetailCard = React.memo(function StateDetailCard({
           { featureType: "administrative", elementType: "labels", stylers: [{ visibility: "off" }] },
           { featureType: "transit", stylers: [{ visibility: "off" }] },
         ],
-      });
+      };
 
-      googleMap.current.fitBounds(bounds);
+      if (mapRef.current) {
+        googleMap.current = new google.maps.Map(mapRef.current, mapOptions);
 
-      // Clear existing markers
-      markersRef.current.forEach(marker => marker.setMap(null));
-      markersRef.current = [];
+        const bounds = new google.maps.LatLngBounds();
+        warehouses.forEach((warehouse, index) => {
+          bounds.extend({ lat: warehouse.latitude, lng: warehouse.longitude });
 
-      warehouses.forEach((warehouse, index) => {
-        const tempF = kelvinToFahrenheit(warehouse.weather.temp);
-        const isHot = typeof tempF === 'number' && tempF > 90;
-        const marker = new google.maps.Marker({
-          position: { lat: warehouse.latitude, lng: warehouse.longitude },
-          map: googleMap.current,
-          title: warehouse.name,
-          icon: isHot ? {
-            path: "M10.453 14.016l6.563-6.609-1.406-1.406-5.156 5.203-2.063-2.109-1.406 1.406zM12 2.016q2.906 0 4.945 2.039t2.039 4.945q0 1.453-0.727 3.328t-1.758 3.516-2.039 3.070-1.711 2.273l-0.75 0.797q-0.281-0.328-0.75-0.867t-1.688-2.156-2.133-3.141-1.664-3.445-0.75-3.375q0-2.906 2.039-4.945t4.945-2.039z",
-            fillColor: "#FF0000",
-            fillOpacity: 1,
-            strokeWeight: 0,
-            scale: 2,
-            anchor: new google.maps.Point(12, 24),
-          } : {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 10,
-            fillColor: "#00FF00",
-            fillOpacity: 0.8,
+          const tempF = kelvinToFahrenheit(warehouse.weather.temp);
+          const isHot = typeof tempF === 'number' && tempF > 90;
+          const marker = new google.maps.Marker({
+            position: { lat: warehouse.latitude, lng: warehouse.longitude },
+            map: googleMap.current,
+            title: warehouse.name,
+            icon: isHot ? {
+              path: "M10.453 14.016l6.563-6.609-1.406-1.406-5.156 5.203-2.063-2.109-1.406 1.406zM12 2.016q2.906 0 4.945 2.039t2.039 4.945q0 1.453-0.727 3.328t-1.758 3.516-2.039 3.070-1.711 2.273l-0.75 0.797q-0.281-0.328-0.75-0.867t-1.688-2.156-2.133-3.141-1.664-3.445-0.75-3.375q0-2.906 2.039-4.945t4.945-2.039z",
+              fillColor: "#FF0000",
+              fillOpacity: 1,
+              strokeWeight: 0,
+              scale: 2,
+              anchor: new google.maps.Point(12, 24),
+            } : {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 10,
+              fillColor: "#00FF00",
+              fillOpacity: 0.8,
+              strokeWeight: 2,
+              strokeColor: "#008000"
+            }
+          });
+
+          marker.addListener('click', () => {
+            handleWarehouseSelect(warehouse, index);
+          });
+
+          markersRef.current.push(marker);
+        });
+
+        googleMap.current.fitBounds(bounds);
+
+        if (stateFeature) {
+          googleMap.current.data.addGeoJson(stateFeature);
+          googleMap.current.data.setStyle({
+            fillColor: 'transparent',
+            strokeColor: '#3a3a3a',
             strokeWeight: 2,
-            strokeColor: "#008000"
-          }
-        });
-
-        marker.addListener('click', () => {
-          handleWarehouseSelect(warehouse, index);
-        });
-
-        markersRef.current.push(marker);
-      });
-
-      // Add state boundary if GeoJSON is available
-      if (stateFeature && googleMap.current) {
-        googleMap.current.data.addGeoJson(stateFeature);
-        googleMap.current.data.setStyle({
-          fillColor: 'transparent',
-          strokeColor: '#3a3a3a',
-          strokeWeight: 2,
-        });
+          });
+        }
       }
-      
-      // Removed heatmap creation code
     });
   }, [warehouses, stateFeature, handleWarehouseSelect]);
 
   useEffect(() => {
-    if (mapRef.current && !googleMap.current) {
-      memoizedHandleMapLoad();
-    }
-  }, [memoizedHandleMapLoad]);
-
-  useEffect(() => {
-    if (selectedIndex !== -1 && markersRef.current[selectedIndex]) {
-      markersRef.current.forEach((marker, index) => {
-        marker.setIcon({
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: index === selectedIndex ? 12 : 10,
-          fillColor: index === selectedIndex ? "#FFFFFF" : "#00FF00",
-          fillOpacity: index === selectedIndex ? 1 : 0.8,
-          strokeWeight: index === selectedIndex ? 3 : 2,
-          strokeColor: index === selectedIndex ? "#000000" : "#008000"
-        });
-      });
-    }
-  }, [selectedIndex]);
+    initializeMap();
+  }, [initializeMap]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -171,7 +141,6 @@ export const StateDetailCard = React.memo(function StateDetailCard({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedIndex, warehouses, handleWarehouseSelect]);
 
-  // Update the WeatherItem component to handle forecasts
   const WeatherItem = React.memo(function WeatherItem({ 
     icon, 
     label, 
@@ -223,18 +192,15 @@ export const StateDetailCard = React.memo(function StateDetailCard({
 
       <div className="flex flex-grow overflow-hidden gap-6">
         <div className="w-1/2 flex flex-col">
-          <div className="flex-grow border-2 border-green-400 rounded-lg overflow-hidden mb-6">
-            <div ref={mapRef} className="w-full h-full" style={{ minHeight: '400px' }}></div>
+          <div className="bg-gray-800 p-4 rounded-lg shadow-lg mb-6 flex-grow">
+            <h3 className="text-xl font-bold mb-4">Warehouse Map</h3>
+            <div ref={mapRef} style={{ width: '100%', height: '400px' }} />
           </div>
-          <div className="bg-gray-800 p-4 rounded-lg shadow-lg">
+          <div className="bg-gray-800 p-4 rounded-lg shadow-lg mb-6 flex-grow">
             <h3 className="text-xl font-bold mb-4">State Statistics</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="font-semibold">Total Warehouses:</p>
-                <p className="text-2xl">{warehouses.length}</p>
-              </div>
-              <div>
-                <p className="font-semibold">Avg Temperature:</p>
+                <p className="font-semibold">Average Temperature:</p>
                 <p className="text-2xl">{calculateAverageTemperature(warehouses)}°F</p>
               </div>
               <div>
@@ -339,7 +305,6 @@ const getWeatherIcon = (weatherId: number) => {
   return <WiCloudy />;
 };
 
-// Helper functions
 const calculateAverageTemperature = (warehouses: Warehouse[]) => {
   const sum = warehouses.reduce((acc, warehouse) => acc + warehouse.weather.temp, 0);
   return kelvinToFahrenheit(sum / warehouses.length);

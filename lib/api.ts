@@ -1,8 +1,7 @@
 import axios from 'axios';
 
 export async function getWeatherData(lat: number, lon: number) {
-  const API_KEY = process.env.OPENWEATHERMAP_API_KEY;
-  const url = `https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lon}&exclude=minutely&appid=${API_KEY}`;
+  const url = `/api/weather?lat=${lat}&lon=${lon}`;
 
   try {
     const response = await axios.get(url);
