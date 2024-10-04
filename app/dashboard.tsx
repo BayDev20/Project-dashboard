@@ -64,6 +64,7 @@ export default function Dashboard() {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [showUserMenu, setShowUserMenu] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [weatherData, setWeatherData] = useState<Warehouse | null>(null);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [filteredWarehouses, setFilteredWarehouses] = useState<Warehouse[]>([]);
