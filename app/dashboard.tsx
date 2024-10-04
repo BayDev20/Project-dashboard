@@ -22,6 +22,8 @@ import { WarehouseList } from '@/components/ui/WarehouseList';
 import MarkerCluster from '@/components/ui/MarkerCluster';
 import { Warehouse } from '@/app/types/warehouseTypes';
 import { fetchRealTimeData } from '@/app/data/warehouseData';
+import { getWeatherData } from '@/lib/api';
+import { WeatherData } from '@/app/types/warehouseTypes';
 
 const geoUrl = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"
 
@@ -67,6 +69,8 @@ export default function Dashboard() {
   const [filteredWarehouses, setFilteredWarehouses] = useState<Warehouse[]>([]);
   const [userEmail, setUserEmail] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const [userWeather, setUserWeather] = useState<WeatherData | null>(null);
 
   const router = useRouter();
 
@@ -100,6 +104,37 @@ export default function Dashboard() {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setUserLocation({ lat: latitude, lon: longitude });
+        },
+        (error) => {
+          console.error("Error getting user location:", error);
+        }
+      );
+    } else {
+      console.log("Geolocation is not available in this browser.");
+    }
+  }, []);
+
+  useEffect(() => {
+    async function fetchUserWeather() {
+      if (userLocation) {
+        try {
+          const weatherData = await getWeatherData(userLocation.lat, userLocation.lon);
+          setUserWeather(weatherData);
+        } catch (error) {
+          console.error("Error fetching user weather:", error);
+        }
+      }
+    }
+
+    fetchUserWeather();
+  }, [userLocation]);
 
   // Memoized values
   const colorScale = useMemo(() => 
@@ -296,31 +331,31 @@ export default function Dashboard() {
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.5 }}
           >
-            {weatherData && (
+            {userWeather && (
               <div className="bg-black p-4 rounded-lg border-2 border-green-500 flex-grow flex flex-col">
                 <h2 className="text-xl font-bold mb-4 text-green-500 flex items-center justify-center">
-                  <FaSun className="mr-2 text-yellow-400" /> Weather Stats
+                  <FaSun className="mr-2 text-yellow-400" /> Your Local Weather
                 </h2>
                 <div className="grid grid-cols-2 gap-4 flex-grow">
                   <MemoizedWeatherModule
                     icon={<WiThermometer className="text-5xl text-red-500" />}
                     label="Temperature"
-                    value={`${kelvinToFahrenheit(weatherData.weather.temp)}°F`}
+                    value={`${kelvinToFahrenheit(userWeather.current.temp)}°F`}
                   />
                   <MemoizedWeatherModule
                     icon={<FaTemperatureHigh className="text-5xl text-orange-500" />}
                     label="Feels Like"
-                    value={`${kelvinToFahrenheit(weatherData.weather.feels_like)}°F`}
+                    value={`${kelvinToFahrenheit(userWeather.current.feels_like)}°F`}
                   />
                   <MemoizedWeatherModule
                     icon={<WiStrongWind className="text-5xl text-teal-500" />}
                     label="Wind"
-                    value={`${mpsToMph(weatherData.weather.wind_speed)} mph`}
+                    value={`${mpsToMph(userWeather.current.wind_speed)} mph`}
                   />
                   <MemoizedWeatherModule
-                    icon={getWeatherIcon(weatherData.weather.weather[0].description)}
+                    icon={getWeatherIcon(userWeather.current.weather[0].description)}
                     label="Description"
-                    value={weatherData.weather.weather[0].description}
+                    value={userWeather.current.weather[0].description}
                   />
                 </div>
               </div>
@@ -395,4 +430,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
