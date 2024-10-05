@@ -1,36 +1,125 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Amazon Warehouse Mission Control
+
+## Overview
+
+Amazon Warehouse Mission Control is a sophisticated web application designed to monitor and manage Amazon's warehouse network across the United States. This project provides real-time weather data, warehouse statistics, and interactive maps to help logistics managers make informed decisions.
+
+## Features
+
+- Interactive US map with warehouse locations
+- Real-time weather data for each warehouse
+- Detailed state-level warehouse information
+- User authentication and authorization
+- Responsive design for various devices
+- Dynamic data visualization with charts and graphs
+
+## Technologies Used
+
+- [Next.js](https://nextjs.org/) - React framework for server-side rendering and static site generation
+- [React](https://reactjs.org/) - JavaScript library for building user interfaces
+- [TypeScript](https://www.typescriptlang.org/) - Typed superset of JavaScript
+- [Firebase](https://firebase.google.com/) - Authentication and real-time database
+- [D3.js](https://d3js.org/) - Data visualization library
+- [React Simple Maps](https://www.react-simple-maps.io/) - React components for creating maps
+- [Recharts](https://recharts.org/) - Charting library built on React components
+- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
+- [Framer Motion](https://www.framer.com/motion/) - Animation library for React
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js (version 14.x or higher)
+- npm or yarn
+- Firebase account
+
+### Installation
+
+1. Clone the repository
+   ```bash
+   git clone https://github.com/baydev20/Project-dashboard.git
+   ```
+
+2. Navigate to the project directory
+   ```bash
+   cd Project-dashboard
+   ```
+
+3. Install dependencies
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
+
+4. Set up environment variables
+   ```bash
+   cp .env.example .env.local
+   ```
+   Edit `.env.local` and add your Firebase configuration and other necessary API keys.
+
+### Running the Development Server
 
 ```bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+amazon-warehouse-mission-control/
+├── app/
+│   ├── components/
+│   ├── lib/
+│   ├── types/
+│   ├── dashboard.tsx
+│   ├── login.tsx
+│   └── ...
+├── public/
+├── styles/
+├── .env.example
+├── .gitignore
+├── next.config.js
+├── package.json
+├── README.md
+└── tsconfig.json
+```
 
-## Learn More
+## Configuration
 
-To learn more about Next.js, take a look at the following resources:
+Ensure you have set up the following environment variables in your `.env.local` file:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `NEXT_PUBLIC_FIREBASE_API_KEY`
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+- `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deployment
 
-## Deploy on Vercel
+This project is set up for easy deployment on [Vercel](https://vercel.com/). Simply connect your GitHub repository to Vercel for automatic deployments on every push to the main branch.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+For other deployment options, refer to the [Next.js deployment documentation](https://nextjs.org/docs/deployment).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Contributing
+
+We welcome contributions to this project. Please read our [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- Amazon for inspiration
+- OpenWeatherMap API for weather data
+- Google Maps API for mapping services
+
+## Contact
+
+Cody Beggs 
+
+Project Link: [https://amazon-dashboard-indol.vercel.app](https://github.com/BayDev20/Project-dashboard)
