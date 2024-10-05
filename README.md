@@ -14,6 +14,7 @@ Amazon Warehouse Mission Control is a sophisticated web application designed to 
 - User authentication and authorization
 - Responsive design for various devices
 - Dynamic data visualization with charts and graphs
+  
 
   <img width="1470" alt="project1" src="https://github.com/user-attachments/assets/1e27a515-faeb-44d5-b999-b1ddf8095135">
 
