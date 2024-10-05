@@ -4,6 +4,8 @@
 
 Amazon Warehouse Mission Control is a sophisticated web application designed to monitor and manage Amazon's warehouse network across the United States. This project provides real-time weather data, warehouse statistics, and interactive maps to help logistics managers make informed decisions.
 
+![image](https://github.com/user-attachments/assets/04c9550d-9052-4809-a227-2bf23c3d8ea7)
+
 ## Features
 
 - Interactive US map with warehouse locations
@@ -12,6 +14,8 @@ Amazon Warehouse Mission Control is a sophisticated web application designed to 
 - User authentication and authorization
 - Responsive design for various devices
 - Dynamic data visualization with charts and graphs
+
+  <img width="1470" alt="project1" src="https://github.com/user-attachments/assets/1e27a515-faeb-44d5-b999-b1ddf8095135">
 
 ## Technologies Used
 
